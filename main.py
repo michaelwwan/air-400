@@ -13,7 +13,11 @@ import numpy as np
 import torch
 import yaml
 from torch.utils.data import DataLoader, ConcatDataset
-import wandb
+import os
+try:
+    import wandb
+except Exception:
+    wandb = None
 
 from dataloaders.air_125 import AIR125Dataset
 from dataloaders.air_400 import AIR400Dataset
@@ -301,10 +305,14 @@ def main():
         elif enable_cv:
             config['NAME'] = config['NAME'] + f'_cv_{i}'
         
-        # Init wandb
-        wandb.init(project="infant-respiration",
-                   name=config['NAME'],
-                   config=config)
+        # Init wandb (optional)
+        use_wandb = bool(config.get('LOGGING', {}).get('USE_WANDB', False)) and (wandb is not None)
+        if use_wandb:
+            wandb.init(project="infant-respiration",
+                       name=config['NAME'],
+                       config=config)
+        else:
+            wandb.run = None
 
         if enable_cv:
             logger.info(f"\n======Current CV fold: {i}======")
@@ -387,7 +395,7 @@ def main():
         test_metrics = trainer.test()
 
         logger.info(f"Training and testing completed successfully.")
-        if i < len(configs) - 1:
+        if i < len(configs) - 1 and getattr(wandb, 'run', None):
             wandb.run.finish(exit_code=0)
 
         for key, value in test_metrics.items():
@@ -401,7 +409,8 @@ def main():
     logger.info('Statistics among all test results:')
     logger.info(all_test_metrics_stat)
 
-    wandb.log(all_test_metrics_stat)
+    if getattr(wandb, 'run', None):
+        wandb.log(all_test_metrics_stat)
 
 
 if __name__ == "__main__":

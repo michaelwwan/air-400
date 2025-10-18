@@ -7,7 +7,10 @@ import torch.optim as optim
 import numpy as np
 from scipy.stats import pearsonr
 from tqdm import tqdm
-import wandb
+try:
+    import wandb
+except Exception:
+    wandb = None
 
 from loss.negpearsonloss import Neg_Pearson
 from loss.psdmse import PSD_MSE
@@ -69,8 +72,10 @@ class BaseTrainer:
         # Initialize post processor
         self.post_processor = PostProcessor()
 
-        # Wandb starts watching model
-        wandb.watch(self.model)
+        # Wandb starts watching model (optional)
+        self.use_wandb = bool(self.config.get('LOGGING', {}).get('USE_WANDB', False)) and (wandb is not None)
+        if self.use_wandb:
+            wandb.watch(self.model)
 
     def _load_params(self):
         # Model related parameters
@@ -265,12 +270,13 @@ class BaseTrainer:
             epoch_loss = sum(batch_losses) / sum(batch_subj_counts) if batch_losses else 0.1
 
             # Log metrics to wandb
-            wandb.log({
-                "epoch": epoch,
-                "train_loss": epoch_loss,
-                "nan_batches": nan_batches,
-                "learning_rate": self.scheduler.get_last_lr()[0]
-            })
+            if self.use_wandb:
+                wandb.log({
+                    "epoch": epoch,
+                    "train_loss": epoch_loss,
+                    "nan_batches": nan_batches,
+                    "learning_rate": self.scheduler.get_last_lr()[0]
+                })
 
             # Save model checkpoint
             self._save_model(epoch)
@@ -281,7 +287,8 @@ class BaseTrainer:
                 self.logger.info(f'Validation loss: {valid_loss}')
 
                 # Log validation loss to wandb
-                wandb.log({"val_loss": valid_loss})
+                if self.use_wandb:
+                    wandb.log({"val_loss": valid_loss})
 
                 # Track best model
                 if self.min_valid_loss is None or valid_loss < self.min_valid_loss:
@@ -292,7 +299,8 @@ class BaseTrainer:
                     # Save best model
                     best_model_path = os.path.join(self.model_dir, f"{self.model_name}_best.pth")
                     torch.save(self.model.state_dict(), best_model_path)
-                    wandb.save(best_model_path)
+                    if self.use_wandb:
+                        wandb.save(best_model_path)
 
         self.logger.info(f"Best trained epoch: {self.best_epoch}, min_val_loss: {self.min_valid_loss}")
 
@@ -470,7 +478,8 @@ class BaseTrainer:
         test_metrics = self._calculate_metrics(final_predictions, final_labels)
 
         # Log test metrics to wandb
-        wandb.log(test_metrics)
+        if self.use_wandb:
+            wandb.log(test_metrics)
 
         self.logger.info("\nTest Results:")
         for key, value in test_metrics.items():
@@ -555,4 +564,5 @@ class BaseTrainer:
         self.logger.info(f'Saved Model Path: {model_path}')
 
         # Save to wandb
-        wandb.save(model_path)
+        if self.use_wandb:
+            wandb.save(model_path)
