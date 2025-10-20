@@ -7,7 +7,12 @@ This is the official repository of our paper:
 
 
 ````
-[ADD BIBTEX CITATION]
+@misc{song_overcoming_2025,
+	title = {Overcoming {Small} {Data} {Limitations} in {Video}-{Based} {Infant} {Respiration} {Estimation}},
+	url = {https://arxiv.org/abs/0000.00000},
+	author = {Song, Liyang and Bishnoi, Hardik and Manne, Sai Kumar Reddy and Ostadabbas, Sarah and Taylor, Brianna J and Wan, Michael},
+	year = {2025},
+}
 ````
 
 Here we provide our model code, training checkpoints, and annotated dataset to support automatic estimation of infant respiration waveforms and respiration rate from natural video footage, with the help of spatiotemporal computer vision models and infant-specific region-of-interest tracking. 
