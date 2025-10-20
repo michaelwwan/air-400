@@ -7,7 +7,7 @@ This is the official repository of our paper:
 
 
 ````
-@misc{song_overcoming_2025,
+@misc{song_bishnoi_overcoming_2025,
 	title = {Overcoming {Small} {Data} {Limitations} in {Video}-{Based} {Infant} {Respiration} {Estimation}},
 	url = {https://arxiv.org/abs/0000.00000},
 	author = {Song, Liyang and Bishnoi, Hardik and Manne, Sai Kumar Reddy and Ostadabbas, Sarah and Taylor, Brianna J and Wan, Michael},
