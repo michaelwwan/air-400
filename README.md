@@ -27,7 +27,7 @@ conda env create -f environment.yml
 #### 2. Compile [pyflow](https://github.com/pathak22/pyflow) library and import it as a module
 ```bash
 git clone https://github.com/pathak22/pyflow.git
-(cd pyflow && python setup.py build_ext -i && mv pyflow.cpython-*.so ..
+(cd pyflow && python setup.py build_ext -i && mv pyflow.cpython-*.so ..)
 ```
 
 ## Quickstart: Inference
