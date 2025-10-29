@@ -19,9 +19,9 @@ try:
 except Exception:
     wandb = None
 
-from dataloaders.air_125 import AIR125Dataset
-from dataloaders.air_400 import AIR400Dataset
-from dataloaders.cohface import COHFACEDataset
+from dataloaders.air125_dataset import AIR125Dataset
+from dataloaders.air400_dataset import AIR400Dataset
+from dataloaders.cohface_dataset import COHFACEDataset
 from models.DeepPhys import DeepPhys
 from models.TS_CAN import TSCAN
 from models.efficientphys import EfficientPhys

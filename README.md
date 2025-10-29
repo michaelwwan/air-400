@@ -2,9 +2,7 @@
 
 This is the official repository of our paper:
 
-
 > Song, L.\*, Bishnoi, H.\*, Manne, S.K.R., Ostadabbas, S., Taylor, B.J., Wan, M., “Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation" (*equal contribution). Under review, [arXiv preprint].
-
 
 ````
 @misc{song_bishnoi_overcoming_2025,
@@ -29,22 +27,44 @@ conda env create -f environment.yml
 #### 2. Compile [pyflow](https://github.com/pathak22/pyflow) library and import it as a module
 ```bash
 git clone https://github.com/pathak22/pyflow.git
-cd pyflow/
-python setup.py build_ext -i
-```
-Move the compiled `pyflow.cpython-**.so` file to the root directory of this repo, so `pyflow` can be imported directly as a module.
-
-#### 3. Sign W&B and login to record training results
-```bash
-export WANDB_API_KEY=<your_api_key>
-wandb login
+(cd pyflow && python setup.py build_ext -i && mv pyflow.cpython-*.so ..
 ```
 
 ## Quickstart: Inference
 
-(Simple instructions for someone to run a pretrained model on their own video data.)
+Use `infer.py` to preprocess input video(s) and run a trained model for respiration rate estimation.
 
-(Link to pretrained models on Google Drive.)
+1. Preparation
+- Download [trained model](https://drive.google.com/drive/folders/1kjSAF9Dt24D670cwBgc-uXCz8WYTaulq?usp=drive_link) and [ROI detector](https://drive.google.com/drive/folders/1k0BHMGXAXIdmOYyt3iGzbUBH_sEGVcAk?usp=drive_link) files.
+- Fill the YAML `DATA_PATH` fields. 
+  - Set paths for cache directory and output directory.
+  - Set valid detector paths (YOLO weights) if ROI cropping is enabled. Otherwise, set `DO_CROP_INFANT_REGION: False`.
+  - Set input video path.
+
+```yaml
+DATA_PATH:
+  CACHE_DIR: /absolute/path/to/cache_dir/
+  OUTPUT_DIR: /absolute/path/to/output_dir/
+  BODY_DETECTOR_PATH: /absolute/path/to/yolov8m.pt
+  FACE_DETECTOR_PATH: /absolute/path/to/yolov8n-face.pt
+  # Provide exactly one of the following:
+  VIDEO_FILE: /absolute/path/to/video.mp4
+  VIDEO_DIR: /absolute/path/to/videos/
+```
+
+2. Example run:
+
+```bash
+python infer.py \
+  --config configs/inference/virenet_infer_example.yaml \
+  --checkpoint /path/to/model_dir/VIRENet_best.pth \
+```
+
+3. Outputs:
+- Per-video JSON under `OUTPUT_DIR/inference/` with RR stats per chunk and mean/std.
+- Logs saved under `OUTPUT_DIR/logs/
+- A summary JSON across all processed videos.
+- (Optional) Waveform CSV and PNG can be enabled in future; current version focuses on RR stats.
 
 ## Annotated Infant Respiration Dataset (AIR-400)
 
@@ -52,25 +72,36 @@ wandb login
 
 ## Reproducing Paper Results
 
-#### 1. Get [AIR-400 dataset]() folder and [ROI detectors]() ready
+#### 1. (Optional) Sign W&B and login to record training results
+```bash
+export WANDB_API_KEY=<your_api_key>
+wandb login
+```
+Set `USE_WANDB: True` in yaml file.
 
-#### 2. Update data paths in the config yaml files
+#### 2. Download [AIR-400 dataset](https://drive.google.com/drive/folders/12BCJ2TNjAquMHTr3A60p2sQJ9Gp7CRDt?usp=drive_link) and [ROI detector](https://drive.google.com/drive/folders/1k0BHMGXAXIdmOYyt3iGzbUBH_sEGVcAk?usp=drive_link) files.
 
-#### 3. Preprocess the data
+#### 3. Fill the YAML `DATA_PATH` fields.
+
+```yaml
+DATA_PATH:
+  AIR_125: [air-125-dir-path]
+  AIR_400: [air-400-dir-path]
+  COHFACE: [cohface-dir-path]
+  CACHE_DIR: [your-cache-dir]
+  OUTPUT_DIR: [your-output-dir]
+  BODY_DETECTOR_PATH: [yolov8-path]
+  FACE_DETECTOR_PATH: [yolov8-face-path]
+```
+
+#### 4. Preprocess the data
 Specify required config yaml file path in `run.sh`. Then uncomment `--preprocess` after `python main.py --config "$CONFIG"` to enable preprocess-only mode. Run this approach first to make sure dataset is preprocessed correctly before following training and testing.
 ```bash
 ./run.sh
 ```
 
-#### 4. Start training and testing process
+#### 5. Start training and testing process
 Comment out `--peprocess` after `python main.py --config "$CONFIG"` in `run.sh` to start training and testing process.
 ```bash
 ./run.sh
 ```
-
-
-
-
-
-
-

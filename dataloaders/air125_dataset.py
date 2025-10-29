@@ -4,27 +4,23 @@ import glob
 
 import cv2
 
-from dataloaders.base import BaseDataset
+from dataloaders.base_dataset import BaseDataset
 
 
-class AIR400Dataset(BaseDataset):
+class AIR125Dataset(BaseDataset):
     """
-    PyTorch Dataset for the AIR 400 dataset.
+    PyTorch Dataset for the AIR 125 dataset.
     
     Dataset structure:
     /
     S01/
+    |   |-- 1.hdf5
     |   |-- 1.mp4
+    |   |-- 2.hdf5
     |   |-- 2.mp4
-    |   |-- 3.mp4
     |...
+    |   |-- n.hdf5
     |   |-- n.mp4
-    |   |-- out/
-    |       |-- 1.hdf5
-    |       |-- 2.hdf5
-    |       |-- 3.hdf5
-    |       |..
-    |       |-- n.hdf5
     S02/
     ...
     """
@@ -36,11 +32,11 @@ class AIR400Dataset(BaseDataset):
 
         subject_dirs = glob.glob(os.path.join(data_path, "S*"))
         if not subject_dirs:
-            logger.error("AIR 400 data paths empty!")
-            raise ValueError("AIR 400 data paths empty!")
+            logger.error("AIR 125 data paths empty!")
+            raise ValueError("AIR 125 data paths empty!")
 
-        logger.info(f"Found {len(subject_dirs)} total subjects for AIR_400 dataset")
-
+        logger.info(f"Found {len(subject_dirs)} total subjects for AIR_125 dataset")
+        
         dirs = []
         for subject_dir in subject_dirs:
             # Extract subject ID (e.g., 'S01' -> 'S01')
@@ -57,9 +53,9 @@ class AIR400Dataset(BaseDataset):
             for mp4_file in mp4_files:
                 # Extract recording ID (number without extension)
                 recording_id = os.path.splitext(os.path.basename(mp4_file))[0]
-
+                
                 # Check if corresponding HDF5 file exists
-                hdf5_file = os.path.join(subject_dir, "out", f"{recording_id}.hdf5")
+                hdf5_file = os.path.join(subject_dir, f"{recording_id}.hdf5")
                 if not os.path.exists(hdf5_file):
                     logger.debug(f"Skipping {mp4_file}: No corresponding HDF5 file found")
                     continue
@@ -80,9 +76,9 @@ class AIR400Dataset(BaseDataset):
                     "label_path": hdf5_file,  # Path to label file
                     "fs": fs
                 })
-
+        
         if not dirs:
-            logger.error("No valid AIR 400 dataset files found!")
-            raise ValueError("No valid AIR 400 dataset files found!")
+            logger.error("No valid AIR 125 dataset files found!")
+            raise ValueError("No valid AIR 125 dataset files found!")
             
         return dirs

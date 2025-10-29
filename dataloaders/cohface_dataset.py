@@ -6,7 +6,7 @@ import glob
 
 import cv2
 
-from dataloaders.base import BaseDataset
+from dataloaders.base_dataset import BaseDataset
 
 
 class COHFACEDataset(BaseDataset):
