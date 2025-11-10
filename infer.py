@@ -113,7 +113,6 @@ def run_inference(config, model, data_loader, logger):
 
     post_processor = PostProcessor()
 
-    logger.info("\n===Inference===")
     model.eval()
 
     # Aggregate predictions across the whole video (per-video metric)
@@ -218,8 +217,8 @@ def main():
     logger = setup_logger(f"inference_{datetime.now()}.log", logs_dir)
 
     # Determine input videos from config
-    video_file = config['DATA_PATH']['VIDEO_FILE']
-    video_dir = config['DATA_PATH']['VIDEO_DIR']
+    video_file = config['DATA_PATH'].get('VIDEO_FILE', None)
+    video_dir = config['DATA_PATH'].get('VIDEO_DIR', None)
     assert (video_file is not None) ^ (video_dir is not None), "Provide exactly one of DATA_PATH.VIDEO_FILE or DATA_PATH.VIDEO_DIR"
 
     if video_file is not None:
@@ -243,6 +242,8 @@ def main():
 
     summary = []
     for vp in video_paths:
+        logger.info(f" === Start inference for video {vp} ===")
+
         # Re-sync data loader RNG
         set_random_seeds(SEED)
 
@@ -265,10 +266,6 @@ def main():
             'rr_bpm': float(rr_bpm),
         }
         logger.info(f"Inference result for video {vp}: {float(rr_bpm):1f} (BPM)")
-        json_path = os.path.join(out_dir, f"{base}_rr.json")
-        with open(json_path, 'w') as f:
-            json.dump(result, f, indent=2)
-        logger.info(f"Saved: {json_path}")
         summary.append(result)
 
     summary_path = os.path.join(out_dir, f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
