@@ -181,3 +181,20 @@ output/
 logs/
 example/
 configs/reproducing_test/
+checkpoints/
+
+# MacOS
+.[Dd]S_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+
+# Linux
+.Trash/
+.Trash-*/
+.local/
+.cache/

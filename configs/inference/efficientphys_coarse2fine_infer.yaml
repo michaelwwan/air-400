@@ -1,0 +1,50 @@
+NAME: efficientphys_coarse2fine_infer
+
+DATA_PATH:
+  CACHE_DIR: [your-cache-dir]
+  OUTPUT_DIR: [your-output-dir]
+  BODY_DETECTOR_PATH: [yolov8-path]  # Set to a YOLOv8 weights file if ROI cropping is enabled
+  FACE_DETECTOR_PATH: [yolov8-face-path]  # Set to a YOLOv8n-face weights file if ROI cropping is enabled
+  # Provide exactly one of the following:
+  VIDEO_FILE: /absolute/path/to/video.mp4
+  # VIDEO_DIR: /absolute/path/to/folder/with/videos
+
+MODEL:
+  DROP_RATE: 0.2
+  NAME: EfficientPhys
+  LOSS: psd_mse
+  FRAME_DEPTH: 10
+  IN_CHANNELS: 3
+
+# Only TEST is required for infer.py; TRAIN/VALID are not needed
+TEST:
+  DATA:
+    INFANT_FLAG: True
+    DATA_FORMAT: NDCHW
+    PREPROCESS:
+      DO_DOWNSAMPLE_BEFORE_PREPROCESS: True
+      DOWNSAMPLE_SIZE_BEFORE_PREPROCESS: [ 320, 180 ]
+      DATA_NORMALIZE_TYPE: Standardized
+      LABEL_NORMALIZE_TYPE: DiffNormalized
+      FLOW_NORMALIZE_TYPE: Standardized
+      DO_CHUNK: True
+      CHUNK_LENGTH: 180
+      DO_CROP_INFANT_REGION: True  # Set True only if BODY/Face detectors are available
+      DYNAMIC_DETECTION: True
+      DYNAMIC_DETECTION_FREQUENCY: 10
+      INFANT_REGION: Body  # Body, Face, or Chest
+      BODY_CONF_THRESHOLD: 0.25
+      FACE_CONF_THRESHOLD: 0.5
+      CHEST_SHIFT_ALPHA: 0.2
+      DO_OPTICAL_FLOW: True
+      OF_METHOD: coarse2fine
+      DO_DOWNSAMPLE_BEFORE_TRAINING: True
+      DOWNSAMPLE_SIZE_BEFORE_TRAINING: [ 96, 96 ]
+
+INFERENCE:
+  BATCH_SIZE: 8
+  EVALUATION_METHOD: FFT
+  USE_POST_PROCESS: True
+
+LOGGING:
+  USE_WANDB: False
