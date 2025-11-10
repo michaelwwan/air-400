@@ -15,7 +15,7 @@ This is the official repository of our paper:
 
 Here we provide our model code, training checkpoints, and annotated dataset to support automatic estimation of infant respiration waveforms and respiration rate from natural video footage, with the help of spatiotemporal computer vision models and infant-specific region-of-interest tracking. 
 
-[INCLUDE DEMO VIDEO]
+<video src="https://github.com/user-attachments/assets/4b7b4703-9163-4812-b380-84225971f0e7" controls autoplay loop muted></video>
 
 ## Requirements & Setup
 
