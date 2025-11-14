@@ -9,41 +9,32 @@ class PostProcessor:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
-    def post_process(self, pred, label, fs=30, diff_flag=True, infant_flag=False, use_bandpass=True, eval_method='FFT'):
+    def post_process(self, sig, fs=30, diff_flag=True, infant_flag=False, use_bandpass=True, eval_method='FFT'):
         """Calculate respiration rate for PPG signal of each video."""
         # Numpy only works on CPU array, so detach and move from GPU tensors
-        pred = pred.detach().cpu().numpy()
-        label = label.detach().cpu().numpy()
+        sig = sig.detach().cpu().numpy()
 
-        fs = float(fs)
-
-        if diff_flag:  # if the predictions and labels are 1st derivative of PPG signal.
-            pred = self._detrend_signal(np.cumsum(pred), 100)
-            label = self._detrend_signal(np.cumsum(label), 100)
+        if diff_flag:  # if the predictions/labels are 1st derivative of PPG signal.
+            sig = self._detrend_signal(np.cumsum(sig), 100)
         else:
-            pred = self._detrend_signal(pred, 100)
-            label = self._detrend_signal(label, 100)
+            sig = self._detrend_signal(sig, 100)
 
         if infant_flag:
             low, high = 0.3, 1.0  # infants (18-60 bpm)
         else:
             low, high = 0.08, 0.5  # adults (5-30 bpm)
-
         if use_bandpass:
-            pred = self._bandpass_filter(pred, fs, low, high)
-            label = self._bandpass_filter(label, fs, low, high)
+            sig = self._bandpass_filter(sig, fs, low, high)
 
         if eval_method == "FFT":
-            pred_rr = self._calculate_fft_rr(pred, fs, low, high)
-            label_rr = self._calculate_fft_rr(label, fs, low, high)
+            sig_rr = self._calculate_fft_rr(sig, fs, low, high)
         elif eval_method == "Peak":
-            pred_rr = self._calculate_peak_rr(pred, fs)
-            label_rr = self._calculate_peak_rr(label, fs)
+            sig_rr = self._calculate_peak_rr(sig, fs)
         else:
             self.logger.error("Please use FFT or Peak method to calculate RR.")
             raise ValueError("Please use FFT or Peak method to calculate RR.")
 
-        return pred_rr, label_rr
+        return sig, sig_rr
 
     @staticmethod
     def _detrend_signal(input_signal, lambda_value=100):

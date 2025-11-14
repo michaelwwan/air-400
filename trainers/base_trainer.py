@@ -460,14 +460,23 @@ class BaseTrainer:
             assert fs > 0, f"Invalid frame rate {fs} for subject {subj}"
 
             if self.use_post_process:
-                pred_subj, labels_subj = self.post_processor.post_process(
-                    pred_subj, labels_subj,
+                _, pred_subj = self.post_processor.post_process(
+                    pred_subj,
                     fs=fs,
                     diff_flag=self.diff_flag_test,
                     infant_flag=ds_name in ['AIR_125', 'AIR_400'],
                     use_bandpass=True,
                     eval_method=self.eval_method
                 )
+                _, labels_subj = self.post_processor.post_process(
+                    labels_subj,
+                    fs=fs,
+                    diff_flag=self.diff_flag_test,
+                    infant_flag=ds_name in ['AIR_125', 'AIR_400'],
+                    use_bandpass=True,
+                    eval_method=self.eval_method
+                )
+
                 pred_subj = torch.tensor(pred_subj, dtype=torch.float32, device=self.device).unsqueeze(0)
                 labels_subj = torch.tensor(labels_subj, dtype=torch.float32, device=self.device).unsqueeze(0)
 

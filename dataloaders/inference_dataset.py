@@ -35,9 +35,8 @@ class InferenceDataset(Dataset):
         self.fs = fps
         labels = np.zeros((frames.shape[0],), dtype=np.float32)  # dummy labels
 
-        frames_clips, labels_clips = self.pre_processor.preprocess(frames, labels, self.fs)
+        frames_clips, _ = self.pre_processor.preprocess(frames, labels, self.fs)
         self.frames_clips = frames_clips
-        self.labels_clips = labels_clips
         self.filename = os.path.splitext(os.path.basename(self.video_path))[0]
 
     def __len__(self):
@@ -45,7 +44,6 @@ class InferenceDataset(Dataset):
 
     def __getitem__(self, idx):
         data = self.frames_clips[idx]  # (D,H,W,6)
-        label = self.labels_clips[idx]  # (D,)
 
         if self.data_format == 'NDCHW':
             data = np.transpose(data, (0, 3, 1, 2))
@@ -56,10 +54,7 @@ class InferenceDataset(Dataset):
         else:
             raise ValueError(f"Unsupported data format: {self.data_format}")
 
-        data = np.float32(data)
-        label = np.float32(label)
-
-        return data, label, self.filename, f"{idx:03d}", self.infant_flag, self.fs
+        return np.float32(data), self.infant_flag, self.fs
 
     def _read_video(self, video_file):
         self.logger.debug(f"Reading video file {video_file}")

@@ -1,6 +1,5 @@
 import argparse
 import json
-import logging
 import os
 from datetime import datetime
 
@@ -8,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
+import h5py
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -34,39 +34,39 @@ def _get_test_split_cfg(config):
     raise TypeError(f"Unexpected type for TEST.DATA: {type(data)}")
 
 
-# def _process_signal(pp: PostProcessor, sig: np.ndarray, fs: float, diff_flag: bool, infant_flag: bool, use_bandpass: bool):
-#     fs = float(fs)
-#     if diff_flag:
-#         sig = pp._detrend_signal(np.cumsum(sig), 100)
-#     else:
-#         sig = pp._detrend_signal(sig, 100)
-#     if use_bandpass:
-#         low, high = (0.3, 1.0) if infant_flag else (0.08, 0.5)
-#         sig = pp._bandpass_filter(sig, fs, low, high)
-#     return sig
+def _save_pred(out_dir, base, fs, pred_seq, logger):
+    pred_seq = np.asarray(pred_seq).reshape(-1)
+    t = np.arange(len(pred_seq), dtype=np.float32)
+    if fs > 0:
+        t = t / fs
 
+    hdf5_path = os.path.join(out_dir, f"{base}_pred.hdf5")
+    with h5py.File(hdf5_path, 'w') as f:
+        f.create_dataset('time_sec', data=t, compression='gzip')
+        f.create_dataset('pred', data=pred_seq, compression='gzip')
+    logger.info(f"Saved hdf5 format prediction to {hdf5_path}")
 
-# def _save_waveform(out_dir: str, base: str, fs: float, pred_seq: np.ndarray, label_seq: np.ndarray | None):
-#     os.makedirs(out_dir, exist_ok=True)
-#     t = np.arange(len(pred_seq)) / float(fs)
-#     csv_path = os.path.join(out_dir, f"{base}_waveform.csv")
-#     np.savetxt(csv_path, np.stack([t, pred_seq], axis=1), delimiter=",", header="time_sec,pred", comments="")
-#     if label_seq is not None and len(label_seq) == len(pred_seq):
-#         csv_lab_path = os.path.join(out_dir, f"{base}_waveform_with_label.csv")
-#         np.savetxt(csv_lab_path, np.stack([t, pred_seq, label_seq], axis=1), delimiter=",", header="time_sec,pred,label", comments="")
+    csv_path = os.path.join(out_dir, f"{base}_pred.csv")
+    np.savetxt(
+        csv_path,
+        np.stack([t, pred_seq], axis=1),
+        delimiter=",",
+        header="time_sec,pred",
+        comments=""
+    )
+    logger.info(f"Saved csv format prediction  to {csv_path}")
 
-#     fig, ax = plt.subplots(figsize=(8, 3))
-#     ax.plot(t, pred_seq, label='pred', linewidth=1.0)
-#     if label_seq is not None and len(label_seq) == len(pred_seq):
-#         ax.plot(t, label_seq, label='label', linewidth=1.0, alpha=0.7)
-#     ax.set_xlabel('Time (s)')
-#     ax.set_ylabel('Signal (a.u.)')
-#     ax.set_title('Respiration waveform')
-#     ax.legend()
-#     fig.tight_layout()
-#     png_path = os.path.join(out_dir, f"{base}_waveform.png")
-#     fig.savefig(png_path, dpi=150)
-#     plt.close(fig)
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.plot(t, pred_seq, label='pred', linewidth=1.0)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Prediction')
+    fig.tight_layout()
+    png_path = os.path.join(out_dir, f"{base}_pred.png")
+    fig.savefig(png_path, dpi=200)
+    plt.close(fig)
+    logger.info(f"Saved waveform plot of prediction to {png_path}")
+
+    return hdf5_path, csv_path, png_path
 
 
 def build_model(config, logger):
@@ -99,33 +99,29 @@ def run_inference(config, model, data_loader, logger):
     model_name = config['MODEL']['NAME']
     frame_depth = config['MODEL']['FRAME_DEPTH']
     base_len = num_of_gpu * frame_depth
-    
+
     preprocess_cfg = _get_test_split_cfg(config)['PREPROCESS']
     do_optical_flow = preprocess_cfg.get('DO_OPTICAL_FLOW', False)
     label_type = preprocess_cfg.get('LABEL_NORMALIZE_TYPE', 'DiffNormalized')
-    
-    diff_flag = True if label_type == 'DiffNormalized' else False
+
+    diff_flag = label_type == 'DiffNormalized'
     eval_method = config['INFERENCE'].get('EVALUATION_METHOD', 'FFT')
-    
+
     model = model.to(device)
     if num_of_gpu > 1:
         model = torch.nn.DataParallel(model, device_ids=list(range(num_of_gpu)))
 
     post_processor = PostProcessor()
-
     model.eval()
 
-    # Aggregate predictions across the whole video (per-video metric)
     all_preds = []
-    all_labels = []
     fs = None
     infant_flag = None
 
     with torch.no_grad():
         for batch in tqdm(data_loader, desc="Testing"):
-            data, labels, subj_indices, chunk_indices, infant_flag_list, fs_list = batch
+            data, infant_flag_list, fs_list = batch
             data = data.to(device)
-            labels = labels.to(device)
 
             # Adapt channels like BaseTrainer
             if model_name.lower() not in ["deepphys", "tscan"]:
@@ -137,12 +133,10 @@ def run_inference(config, model, data_loader, logger):
             # Flatten for conv input shape
             N, D, C, H, W = data.shape
             data = data.view(N * D, C, H, W)
-            labels = labels.view(-1, 1)
 
             # Ensure data and labels length is divisible by base_len
             valid_len = (data.shape[0] // base_len) * base_len
             data = data[:valid_len]
-            labels = labels[:valid_len]
 
             # Add one more frame for EfficientPhys since it does torch.diff for the input
             if model_name.lower().startswith("efficientphys"):
@@ -153,20 +147,14 @@ def run_inference(config, model, data_loader, logger):
             pred = model(data)
 
             all_preds.append(pred)
-            all_labels.append(labels)
             if fs is None:
                 fs = fs_list[0]
             if infant_flag is None:
                 infant_flag = infant_flag_list[0]
 
-    if not all_preds:
-        return 0.0
-
     pred_seq = torch.cat(all_preds, dim=0).unsqueeze(0)
-    label_seq = torch.cat(all_labels, dim=0).unsqueeze(0)
-
-    pred_rr, _ = post_processor.post_process(
-        pred_seq, label_seq,
+    pred_seq, pred_rr = post_processor.post_process(
+        pred_seq,
         fs=fs,
         diff_flag=diff_flag,
         infant_flag=infant_flag,
@@ -174,7 +162,11 @@ def run_inference(config, model, data_loader, logger):
         eval_method=eval_method
     )
 
-    return float(pred_rr)
+    return {
+        'pred_rr_bpm': float(pred_rr),
+        'fs': fs,
+        'pred_seq': pred_seq,
+    }
 
 
 def find_checkpoint(config, logger, explicit_path=None):
@@ -258,17 +250,44 @@ def main():
         # Re-sync inference RNG
         set_random_seeds(SEED)
 
-        rr_bpm = run_inference(config, model, test_loader, logger)
         base = os.path.splitext(os.path.basename(vp))[0]
+        vp_out_dir = os.path.join(out_dir, base + '_' + datetime.now().strftime("%Y%m%d-%H%M%S"))
+        os.makedirs(vp_out_dir, exist_ok=True)
+
+        metrics = run_inference(config, model, test_loader, logger)
+        fs = metrics['fs']
 
         result = {
             'video': os.path.abspath(vp),
-            'rr_bpm': float(rr_bpm),
+            'fs': fs,
+            'pred_rr_bpm': float(metrics['pred_rr_bpm'])
         }
-        logger.info(f"Inference result for video {vp}: {float(rr_bpm):1f} (BPM)")
+
+        pred_seq = metrics.get('pred_seq', np.array([]))
+
+        if pred_seq.size:
+            hdf5_path, csv_path, png_path = _save_pred(
+                vp_out_dir,
+                base,
+                fs,
+                pred_seq,
+                logger
+            )
+
+            result['hdf5_path'] = hdf5_path
+            result['csv_path'] = csv_path
+            result['png_path'] = png_path
+            logger.info(f"Saved waveform hdf5/csv/png for {vp}")
+
+        per_video_path = os.path.join(vp_out_dir, f"{base}_result.json")
+        with open(per_video_path, 'w') as f:
+            json.dump(result, f, indent=2)
+        result['result_json'] = per_video_path
+        logger.info(f"Saved per-video result to {per_video_path}")
+        logger.info(f"Inference result for video {vp}: {result['pred_rr_bpm']:.2f} BPM")
         summary.append(result)
 
-    summary_path = os.path.join(out_dir, f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+    summary_path = os.path.join(out_dir, f"summary_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json")
     with open(summary_path, 'w') as f:
         json.dump(summary, f, indent=2)
     logger.info(f"Saved summary to: {summary_path}")
@@ -276,4 +295,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

@@ -56,14 +56,14 @@ DATA_PATH:
 
 ```bash
 python infer.py \
-  --config configs/inference/virenet_infer_example.yaml \
-  --checkpoint /path/to/model_dir/VIRENet_best.pth \
+  --config configs/inference/virenet_coarse2fine_infer.yaml \
+  --checkpoint checkpoints/virenet_coarse2fine_body.pth \
 ```
 
 #### 3. Outputs
-- A summary JSON with RR stats under `OUTPUT_DIR/inference/` for all processed videos.
-- Logs saved under `OUTPUT_DIR/logs/`
-- (Optional) Waveform CSV and PNG can be enabled in the future; current version focuses on RR stats.
+- Per-video JSON under `OUTPUT_DIR/inference/{video}_{datetime}` with prediction result JSON file and generated artifacts (HDF5 and CSV format time series and PNG format waveform plots).
+- A summary JSON across all processed videos (`summary_*.json`).
+- Logs saved under `OUTPUT_DIR/logs/`.
 
 ## Annotated Infant Respiration Dataset (AIR-400)
 
