@@ -198,12 +198,10 @@ def main():
     set_random_seeds(SEED)
 
     parser = argparse.ArgumentParser(description='Inference entry point for infant respiration models')
-    parser.add_argument('--config', type=str, required=True, help='Path to config file for inference')
+    parser.add_argument('--config', type=str, required=True, help='Path to config YAML used for training')
     parser.add_argument('--checkpoint', type=str, required=False, default=None, help='Path to trained model checkpoint (.pth)')
-    parser.add_argument('--preprocess', action='store_true', required=False, help='Enable preprocessing only mode')
     args = parser.parse_args()
 
-    preprocess_only = args.preprocess
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
@@ -226,12 +224,11 @@ def main():
         ]
         video_paths.sort()
 
-    if not preprocess_only:
-        # Build and load model
-        model = build_model(config, logger)
-        ckpt_path = find_checkpoint(config, logger, args.checkpoint)
-        model.load_state_dict(torch.load(ckpt_path))
-        logger.info(f"Loaded checkpoint: {ckpt_path}")
+    # Build and load model
+    model = build_model(config, logger)
+    ckpt_path = find_checkpoint(config, logger, args.checkpoint)
+    model.load_state_dict(torch.load(ckpt_path))
+    logger.info(f"Loaded checkpoint: {ckpt_path}")
 
     out_dir = os.path.join(config['DATA_PATH']['OUTPUT_DIR'], 'inference')
     os.makedirs(out_dir, exist_ok=True)
@@ -253,10 +250,6 @@ def main():
             num_workers=10,
             worker_init_fn=seed_worker,
         )
-
-        if preprocess_only:
-            logger.info(f"Preprocessing only mode: cached data for {vp}")
-            continue
 
         # Re-sync inference RNG
         set_random_seeds(SEED)
@@ -296,10 +289,6 @@ def main():
         logger.info(f"Saved per-video result to {per_video_path}")
         logger.info(f"Inference result for video {vp}: {result['pred_rr_bpm']:.2f} BPM")
         summary.append(result)
-
-    if preprocess_only:
-        logger.info('Preprocessing only mode. Completed successfully.')
-        return
 
     summary_path = os.path.join(out_dir, f"summary_{datetime.now().strftime('%Y%m%d-%H%M%S')}.json")
     with open(summary_path, 'w') as f:

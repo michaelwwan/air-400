@@ -54,14 +54,6 @@ DATA_PATH:
 
 #### 2. Example run
 
-Preprocess the data first:
-```bash
-python infer.py \
-  --config configs/inference/virenet_coarse2fine_infer.yaml \
-  --preprocess
-```
-
-Start inference process:
 ```bash
 python infer.py \
   --config configs/inference/virenet_coarse2fine_infer.yaml \
