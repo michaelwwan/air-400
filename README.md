@@ -38,8 +38,12 @@ Here we provide our model code, training checkpoints, and annotated dataset to s
 - [Citation](#-citation)
 - [License](#-license)
 
-#### 🎥 Sample Dataset Preprocessing
-<video src="https://github.com/user-attachments/assets/4b7b4703-9163-4812-b380-84225971f0e7" autoplay loop muted playsinline></video>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/e2aacfc2-fa0d-4e4d-b03f-65e555bd81a2" alt="Sample Dataset Preprocessing" width="50%"></img>
+</p>
+<p align="center">
+<i>Sample Dataset Preprocessing</i>
+</p>
 
 ## 📦 Requirements & Setup 
 
@@ -63,12 +67,15 @@ git clone https://github.com/pathak22/pyflow.git
 
 ## ⚡ Quickstart: Inference
 
-#### Sample Inference Output
-
-Predicted respiration waveform from a sample infant video after preprocessing and model inference.
-
-<video src="https://github.com/user-attachments/assets/7898794e-3223-4c57-9565-410497a466c9" autoplay loop muted playsinline></video>
-<img src="https://github.com/user-attachments/assets/b8c66ec4-a379-4d50-94ff-c08689228af7" alt="Demo Waveform Plot" width="70%" />
+<p align="center">
+<img src="https://github.com/user-attachments/assets/ed03120a-5591-453a-aef3-b58b8348dd50" alt="Sample Inference Waveform" width="50%"></img>
+</p>
+<p align="center">
+<img src="https://github.com/user-attachments/assets/b8c66ec4-a379-4d50-94ff-c08689228af7" alt="Sample Waveform Plot" width="50%" />
+</p>
+<p align="center">
+<i>Sample Inference Output</i>
+</p>
 
 Use `infer.py` to preprocess input video(s) and run a trained model for respiration rate estimation.
 
