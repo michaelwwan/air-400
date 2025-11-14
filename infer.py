@@ -237,7 +237,10 @@ def main():
 
     summary = []
     for vp in video_paths:
-        logger.info(f" === Start inference for video {vp} ===")
+        if preprocess_only:
+            logger.info(f" === Start inference for video {vp} (preprocess only) ===")
+        else:
+            logger.info(f" === Start inference for video {vp} ===")
 
         # Re-sync data loader RNG
         set_random_seeds(SEED)

@@ -1,7 +1,6 @@
 NAME: virenet_coarse2fine_infer
 
 DATA_PATH:
-  CACHE_DIR: /projects/song.liy/cache_dir
   OUTPUT_DIR: output
   BODY_DETECTOR_PATH: /projects/song.liy/yolov8m.pt  # Set to a YOLOv8 weights file if ROI cropping is enabled
   FACE_DETECTOR_PATH: /projects/song.liy/yolov8n-face.pt  # Set to a YOLOv8n-face weights file if ROI cropping is enabled
