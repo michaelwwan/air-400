@@ -1,3 +1,7 @@
+"""Base dataset definition shared across AIR-125/400 and COHFACE."""
+
+from __future__ import annotations
+
 import glob
 import json
 import logging
@@ -5,6 +9,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from typing import Any, Dict, Iterable, List, Sequence, Tuple, Optional
 
 import cv2
 import h5py
@@ -16,17 +21,15 @@ from processors.pre_processor import PreProcessor
 
 
 class BaseDataset(Dataset, ABC):
-    """Abstract base class for AIR 125, AIR 400, and COHFACE datasets."""
+    """Abstract base class for AIR125/AIR400/COHFACE datasets."""
 
-    def __init__(self, config, split):
+    def __init__(self, config: Dict[str, Any], split: str) -> None:
         """
-        Initialize the dataset.
-
+        Initialize the dataset with config and chosen split.
         Args:
             config: Configuration dictionary
-            split (str): 'TRAIN', 'VALID', or 'TEST'
+            split: 'TRAIN', 'VALID', or 'TEST'
         """
-
         super().__init__()
 
         self.config = config
@@ -71,11 +74,11 @@ class BaseDataset(Dataset, ABC):
 
         self.logger.info(f"{self.dataset} Dataset {split} Split: {len(self.subjects_for_split)} preprocessed subjects ({len(self.dirs_for_split)} clips in {len(self.inputs)} chunks) loaded")
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of samples in the dataset."""
         return len(self.inputs)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[np.ndarray, np.ndarray, str, str, str, int]:
         """Return a data sample by index."""
         # Load data and label
         data = np.load(self.inputs[index])
@@ -105,11 +108,11 @@ class BaseDataset(Dataset, ABC):
         return data, label, filename, chunk_id, self.dataset, fs
 
     @staticmethod
-    def get_unique_subjects(data_dirs):
+    def get_unique_subjects(data_dirs: Sequence[Dict[str, Any]]) -> List[str]:
         """Get unique subject IDs."""
-        return sorted(list(set([d["subject"] for d in data_dirs])))
+        return sorted({d["subject"] for d in data_dirs})
 
-    def _load_params(self):
+    def _load_params(self) -> None:
         data_config = self.config[self.split]['DATA']
         self.dataset = data_config['DATASET']  # 'AIR_125', 'AIR_400', or 'COHFACE'
         self.data_path = self.config['DATA_PATH'][self.dataset]  # Path to the raw data directory
@@ -122,9 +125,8 @@ class BaseDataset(Dataset, ABC):
         self.face_detector_path = self.config['DATA_PATH']['FACE_DETECTOR_PATH']
         self.preprocess_config = data_config['PREPROCESS']
 
-    def _create_directories(self):
+    def _create_directories(self) -> None:
         """Create model and cache directories for the dataset."""
-
         self.cache_dir = os.path.join(
             str(self.config['DATA_PATH']['CACHE_DIR']),
             self.dataset,
@@ -135,7 +137,7 @@ class BaseDataset(Dataset, ABC):
         # Save preprocess configs in a file within each cache_dir
         self.meta_path = os.path.join(self.cache_dir, 'meta.json')
 
-    def _calculate_split_range(self):
+    def _calculate_split_range(self) -> Tuple[Optional[float], Optional[float]]:
         """Calculate split ranges (start, end) for current split."""
         # Use full dataset as split range
         if self.split_type not in ['custom', 'ratio']:
@@ -169,7 +171,7 @@ class BaseDataset(Dataset, ABC):
 
             return cursor, cursor + self.config[self.split]['DATA']['SPLIT_RATIO']
 
-    def _get_split_subjects(self):
+    def _get_split_subjects(self) -> Sequence[str]:
         """Split subjects into train, validation, and test sets."""
         # Split by custom subject list
         if self.split_type == 'custom':
@@ -197,7 +199,7 @@ class BaseDataset(Dataset, ABC):
 
             return subjects[start_idx:end_idx]
 
-    def _auto_preprocess_dataset(self):
+    def _auto_preprocess_dataset(self) -> None:
         """Preprocess all data for the current split."""
         self.logger.info(f"\n====Preprocessing====")
         self.logger.info(f"Preprocessing {len(self.dirs_for_split)} clips in {self.split} split of {self.dataset} dataset:")
@@ -227,9 +229,9 @@ class BaseDataset(Dataset, ABC):
             self.logger.info(f"{[d['index'] for d in preprocessed]}")
             self._load_preprocessed_subjects(preprocessed)
 
-    def _load_metadata(self):
+    def _load_metadata(self) -> None:
         """
-        Load config from existing metadata file and compare with current config.
+        Load metadata JSON, ensuring it matches the current config hash.
         If metadata file does not exist, create a new one to save current config.
         """
         if os.path.exists(self.meta_path):
@@ -248,9 +250,10 @@ class BaseDataset(Dataset, ABC):
             with open(self.meta_path, "w") as f:
                 json.dump(self.metadata, f, indent=2)
 
-    def _load_preprocessed_subjects(self, preprocessed):
+    def _load_preprocessed_subjects(self, preprocessed: Sequence[Dict[str, Any]]) -> None:
         """Load preprocessed subjects for current preprocess config."""
-        def _get_chunk_id(path):
+
+        def _get_chunk_id(path: str) -> int:
             m = re.search(r'_input_(\d+)\.npy$', os.path.basename(path))
             return int(m.group(1)) if m else -1
 
@@ -265,7 +268,7 @@ class BaseDataset(Dataset, ABC):
             self.labels.extend(label_files)
             self.fs_list.extend(len(input_files) * [data_dir['fs']])
 
-    def _preprocess_subjects(self, need_preprocess):
+    def _preprocess_subjects(self, need_preprocess: Sequence[Dict[str, Any]]) -> None:
         """Preprocess and save subjects with current preprocess config."""
         for data_dir in tqdm(need_preprocess):
             file_idx = data_dir['index']
@@ -284,7 +287,7 @@ class BaseDataset(Dataset, ABC):
             # Save preprocessed data
             self._save_chunks(frames_clips, labels_clips, file_idx)
 
-    def _save_chunks(self, frames_clips, labels_clips, file_idx):
+    def _save_chunks(self, frames_clips: np.ndarray, labels_clips: np.ndarray, file_idx: str) -> None:
         """Save preprocessed data chunks."""
         for i in range(len(labels_clips)):
             input_path = os.path.join(self.cache_dir, f"{file_idx}_input_{i:03d}.npy")
@@ -304,7 +307,7 @@ class BaseDataset(Dataset, ABC):
             json.dump(self.metadata, f, indent=2)
 
     @staticmethod
-    def _get_filename(item_path):
+    def _get_filename(item_path: str) -> Tuple[str, str]:
         """Extract filename and chunk_id."""
         item_path_filename = os.path.basename(item_path)
         split_idx = item_path_filename.rindex('_input_')
@@ -312,7 +315,7 @@ class BaseDataset(Dataset, ABC):
         chunk_id = item_path_filename[split_idx + 7:].split('.')[0]
         return filename, chunk_id
 
-    def _read_video(self, video_file):
+    def _read_video(self, video_file: str) -> np.ndarray:
         """Read video file and return frames (T,H,W,3)."""
         self.logger.debug(f"Reading video file {video_file}")
         VidObj = cv2.VideoCapture(video_file)
@@ -329,7 +332,7 @@ class BaseDataset(Dataset, ABC):
 
         return np.asarray(frames)
 
-    def _read_wave(self, label_file):
+    def _read_wave(self, label_file: str) -> np.ndarray:
         """Read wave file and return respiration signal."""
         self.logger.debug(f"Reading wave file {label_file}")
         f = h5py.File(label_file, 'r')
@@ -339,7 +342,7 @@ class BaseDataset(Dataset, ABC):
         return resp
 
     @staticmethod
-    def _resample_ppg(input_signal, target_length):
+    def _resample_ppg(input_signal: np.ndarray, target_length: int) -> np.ndarray:
         """Resample PPG signal to match video length."""
         return np.interp(
             np.linspace(1, input_signal.shape[0], target_length),
@@ -347,7 +350,7 @@ class BaseDataset(Dataset, ABC):
             input_signal
         )
 
-    def _read_video_wave_files(self, data_dir):
+    def _read_video_wave_files(self, data_dir: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
         """Read video to get frames, read wave to get labels."""
         frames = self._read_video(data_dir['video_path'])
         labels = self._read_wave(data_dir['label_path'])
@@ -356,6 +359,6 @@ class BaseDataset(Dataset, ABC):
     # Abstract methods that must be implemented by subclasses
     @classmethod
     @abstractmethod
-    def get_raw_data(cls, data_path):
+    def get_raw_data(cls, data_path: str) -> Sequence[Dict[str, Any]]:
         """Get raw data directories."""
         pass

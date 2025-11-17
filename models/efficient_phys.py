@@ -1,11 +1,23 @@
+"""EfficientPhys: lightweight TS-CAN-style architecture."""
+
+from __future__ import annotations
+
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
+from torch import Tensor
 
-class Attention_mask(nn.Module):
-    def __init__(self):
-        super(Attention_mask, self).__init__()
 
-    def forward(self, x):
+class AttentionMask(nn.Module):
+    """Attention mask with NaN protection."""
+
+    def __init__(self) -> None:
+        """Initialize mask module."""
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Generate normalized mask while guarding against NaNs."""
         # Handle NaN input
         if torch.isnan(x).any():
             print("Warning: NaN input to Attention_mask")
@@ -30,12 +42,16 @@ class Attention_mask(nn.Module):
 
 
 class TSM(nn.Module):
-    def __init__(self, n_segment=10, fold_div=3):
-        super(TSM, self).__init__()
+    """Temporal shift module reused across models."""
+
+    def __init__(self, n_segment: int = 10, fold_div: int = 3) -> None:
+        """Store number of segments and fold division."""
+        super().__init__()
         self.n_segment = n_segment
         self.fold_div = fold_div
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """Apply temporal shift to tensor `x`."""
         nt, c, h, w = x.size()
         n_batch = nt // self.n_segment
         x = x.view(n_batch, self.n_segment, c, h, w)
@@ -50,14 +66,26 @@ class TSM(nn.Module):
 class EfficientPhys(nn.Module):
     """
     EfficientPhys: Enabling Simple, Fast and Accurate Camera-Based Vitals Measurement
-    
+
     From: Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV 2023)
     Authors: Xin Liu, Brial Hill, Ziheng Jiang, Shwetak Patel, Daniel McDuff
     """
 
-    def __init__(self, in_channels=3, nb_filters1=32, nb_filters2=64, kernel_size=3, dropout_rate1=0.25,
-                 dropout_rate2=0.5, pool_size=(2, 2), nb_dense=128, frame_depth=20, img_size=36):
-        super(EfficientPhys, self).__init__()
+    def __init__(
+        self,
+        in_channels: int = 3,
+        nb_filters1: int = 32,
+        nb_filters2: int = 64,
+        kernel_size: int = 3,
+        dropout_rate1: float = 0.25,
+        dropout_rate2: float = 0.5,
+        pool_size: Tuple[int, int] = (2, 2),
+        nb_dense: int = 128,
+        frame_depth: int = 20,
+        img_size: int = 36,
+    ) -> None:
+        """Initialize the EfficientPhys architecture."""
+        super().__init__()
         self.in_channels = in_channels
         self.kernel_size = kernel_size
         self.dropout_rate1 = dropout_rate1
@@ -83,9 +111,9 @@ class EfficientPhys(nn.Module):
         
         # Attention layers
         self.apperance_att_conv1 = nn.Conv2d(self.nb_filters1, 1, kernel_size=1, padding=(0, 0), bias=True)
-        self.attn_mask_1 = Attention_mask()
+        self.attn_mask_1 = AttentionMask()
         self.apperance_att_conv2 = nn.Conv2d(self.nb_filters2, 1, kernel_size=1, padding=(0, 0), bias=True)
-        self.attn_mask_2 = Attention_mask()
+        self.attn_mask_2 = AttentionMask()
         
         # Avg pooling
         self.avg_pooling_1 = nn.AvgPool2d(self.pool_size)
@@ -111,7 +139,8 @@ class EfficientPhys(nn.Module):
         self.final_dense_2 = nn.Linear(self.nb_dense, 1, bias=True)
         self.batch_norm = nn.BatchNorm2d(self.in_channels)
 
-    def forward(self, inputs, params=None):
+    def forward(self, inputs: Tensor, params: Optional[Tensor] = None) -> Tensor:
+        """Return respiration prediction for the provided clip batch."""
         inputs = torch.diff(inputs, dim=0)
         inputs = self.batch_norm(inputs)
 

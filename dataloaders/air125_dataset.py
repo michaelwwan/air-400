@@ -1,6 +1,11 @@
+"""AIR-125 dataset reader."""
+
+from __future__ import annotations
+
+import glob
 import logging
 import os
-import glob
+from typing import Any, Dict, Sequence
 
 import cv2
 
@@ -9,8 +14,8 @@ from dataloaders.base_dataset import BaseDataset
 
 class AIR125Dataset(BaseDataset):
     """
-    PyTorch Dataset for the AIR 125 dataset.
-    
+    AIR-125 dataset layout with per-subject .mp4/.hdf5 pairs.
+
     Dataset structure:
     /
     S01/
@@ -26,8 +31,8 @@ class AIR125Dataset(BaseDataset):
     """
 
     @classmethod
-    def get_raw_data(cls, data_path):
-        """Get raw data directories."""
+    def get_raw_data(cls, data_path: str) -> Sequence[Dict[str, Any]]:
+        """Enumerate raw clip metadata for AIR-125."""
         logger = logging.getLogger(cls.__name__)
 
         subject_dirs = glob.glob(os.path.join(data_path, "S*"))

@@ -1,34 +1,44 @@
-"""Motion-based deep learning model that uses flow as input.
-"""
+"""VIRENet: motion flow network with temporal shift modules."""
+
+from __future__ import annotations
+
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
 
-# TODO: Check if this is channel-wise attention. Experiment with other att blocks.
-class Attention_mask(nn.Module):
-    def __init__(self):
-        super(Attention_mask, self).__init__()
+class AttentionMask(nn.Module):
+    """Simple spatial attention mask."""
 
-    def forward(self, x):
+    def __init__(self) -> None:
+        """Initialize mask module."""
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Generate normalized mask for tensor ``x``."""
         xsum = torch.sum(x, dim=2, keepdim=True)
         xsum = torch.sum(xsum, dim=3, keepdim=True)
         xshape = tuple(x.size())
         return x / xsum * xshape[2] * xshape[3] * 0.5
 
-    def get_config(self):
-        """May be generated manually. """
-        config = super(Attention_mask, self).get_config()
-        return config
+    def get_config(self) -> dict:
+        """Return base config; kept for compatibility."""
+        return super().get_config()
 
 
 class TSM(nn.Module):
-    def __init__(self, n_segment=10, fold_div=3):
-        super(TSM, self).__init__()
+    """Temporal shift module reused by VIRENet."""
+
+    def __init__(self, n_segment: int = 10, fold_div: int = 3) -> None:
+        """Store number of segments and fold division."""
+        super().__init__()
         self.n_segment = n_segment
         self.fold_div = fold_div
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """Apply temporal shift to tensor `x`."""
         nt, c, h, w = x.size()
         n_batch = nt // self.n_segment
         x = x.view(n_batch, self.n_segment, c, h, w)
@@ -41,10 +51,24 @@ class TSM(nn.Module):
 
 
 class VIRENet(nn.Module):
+    """Flow-based temporal shift network."""
 
-    def __init__(self, in_channels=3, nb_filters1=32, nb_filters2=64, kernel_size=3, dropout_rate1=0.25,
-                 dropout_rate2=0.5, pool_size=(2, 2), nb_dense=128, frame_depth=20, img_size=36, channel='raw'):
-        super(VIRENet, self).__init__()
+    def __init__(
+        self,
+        in_channels: int = 3,
+        nb_filters1: int = 32,
+        nb_filters2: int = 64,
+        kernel_size: int = 3,
+        dropout_rate1: float = 0.25,
+        dropout_rate2: float = 0.5,
+        pool_size: Tuple[int, int] = (2, 2),
+        nb_dense: int = 128,
+        frame_depth: int = 20,
+        img_size: int = 36,
+        channel: str = 'raw',
+    ) -> None:
+        """Initialize the VIRENet architecture."""
+        super().__init__()
 
         self.in_channels = in_channels
         self.kernel_size = kernel_size
@@ -75,9 +99,9 @@ class VIRENet(nn.Module):
 
         # Attention layers
         self.apperance_att_conv1 = nn.Conv2d(self.nb_filters1, 1, kernel_size=1, padding=(0, 0), bias=True)
-        self.attn_mask_1 = Attention_mask()
+        self.attn_mask_1 = AttentionMask()
         self.apperance_att_conv2 = nn.Conv2d(self.nb_filters2, 1, kernel_size=1, padding=(0, 0), bias=True)
-        self.attn_mask_2 = Attention_mask()
+        self.attn_mask_2 = AttentionMask()
 
         # Avg pooling
         self.avg_pooling_1 = nn.AvgPool2d(self.pool_size)
@@ -104,7 +128,8 @@ class VIRENet(nn.Module):
             raise Exception('Unsupported image size')
         self.final_dense_2 = nn.Linear(self.nb_dense, 1, bias=True)
 
-    def forward(self, inputs, params=None):
+    def forward(self, inputs: Tensor, params: Optional[Tensor] = None) -> Tensor:
+        """Expect normalized HSV flow frames and output respiration prediction."""
         # Expecting a normalized/standardized HSV view of flow between two frames
         norm_input = self.conv0(inputs)
 

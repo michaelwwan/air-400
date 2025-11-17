@@ -1,8 +1,11 @@
-# Import the simplified COHFACE dataloader we created earlier
-# This file contains the COHFACEDataset class that was previously implemented
+"""COHFACE dataset reader."""
+
+from __future__ import annotations
+
+import glob
 import logging
 import os
-import glob
+from typing import Any, Dict, Sequence
 
 import cv2
 
@@ -11,8 +14,8 @@ from dataloaders.base_dataset import BaseDataset
 
 class COHFACEDataset(BaseDataset):
     """
-    PyTorch Dataset for the COHFACE dataset.
-    
+    COHFACE dataset layout of numbered subjects and sessions.
+
     Dataset structure:
     RawData/
     |   |-- 1/
@@ -35,8 +38,8 @@ class COHFACEDataset(BaseDataset):
     """
 
     @classmethod
-    def get_raw_data(cls, data_path):
-        """Get raw data directories."""
+    def get_raw_data(cls, data_path: str) -> Sequence[Dict[str, Any]]:
+        """Enumerate raw clip metadata for COHFACE."""
         logger = logging.getLogger(cls.__name__)
 
         data_dirs = glob.glob(os.path.join(data_path, "*"))

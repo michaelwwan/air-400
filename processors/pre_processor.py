@@ -1,13 +1,18 @@
+"""Data preprocessing utilities for training/inference pipelines."""
+
+from __future__ import annotations
+
+import contextlib
 import hashlib
 import json
 import logging
+import os
+import sys
 from multiprocessing import cpu_count, Pool
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
-import contextlib
-import os
-import sys
 
 import pyflow
 import torch
@@ -18,7 +23,7 @@ from ultralytics import YOLO
 
 
 @contextlib.contextmanager
-def _suppress_pyflow_output():
+def _suppress_pyflow_output() -> Iterator[None]:
     """Suppress verbose stdout/stderr emitted by pyflow's C++ implementation."""
     with open(os.devnull, 'w') as devnull:
         old_stdout_fd = os.dup(sys.stdout.fileno())
@@ -35,7 +40,15 @@ def _suppress_pyflow_output():
 
 
 class PreProcessor:
-    def __init__(self, preprocess_config, body_detector_path, face_detector_path):
+    """Encapsulates all frame, flow, and ROI preprocessing logic."""
+
+    def __init__(
+        self,
+        preprocess_config: Dict[str, Any],
+        body_detector_path: str,
+        face_detector_path: str,
+    ) -> None:
+        """Store configuration and initialize detectors."""
         self.preprocess_config = preprocess_config
         self.body_detector_path = body_detector_path
         self.face_detector_path = face_detector_path
@@ -43,9 +56,8 @@ class PreProcessor:
         self._load_params()
         self._init_detector()
 
-    def _load_params(self):
+    def _load_params(self) -> None:
         """Load preprocess configs."""
-
         # Downsample to lower resolution for faster preprocessing
         self.do_downsample_before_preprocess = self.preprocess_config.get('DO_DOWNSAMPLE_BEFORE_PREPROCESS', False)
         self.downsample_size_before_preprocess = self.preprocess_config.get('DOWNSAMPLE_SIZE_BEFORE_PREPROCESS', [640, 360]) \
@@ -128,7 +140,7 @@ class PreProcessor:
         self.downsample_size_before_training = self.preprocess_config.get('DOWNSAMPLE_SIZE_BEFORE_TRAINING', [96, 96]) \
             if self.do_downsample_before_training else [0, 0]
 
-    def _init_detector(self):
+    def _init_detector(self) -> None:
         """Initiate body detectors and face detectors."""
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.face_detector = None
@@ -150,12 +162,16 @@ class PreProcessor:
         except Exception:
             self.logger.exception(f"Failed to load YOLOv8n-Face model")
 
-    def preprocess(self, frames, labels, raw_fs):
-        """Preprocess pipeline for frames and labels."""
-
+    def preprocess(
+        self,
+        frames: np.ndarray,
+        labels: np.ndarray,
+        raw_fs: int,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Run the entire preprocessing pipeline and return chunked tensors."""
         # 1. (Optional) downsample to lower resolution for faster preprocessing
         if self.do_downsample_before_preprocess:
-            frames = self._resize_frames(frames, self.downsample_size_before_preprocess)
+            frames, _ = self._resize_frames(frames, self.downsample_size_before_preprocess)
 
         # 2. (Optional) Detect infant boxes and crop frames
         if self.do_crop_infant_region:
@@ -203,7 +219,7 @@ class PreProcessor:
             if flow is not None:
                 frames, flow = self._resize_frames(frames, self.downsample_size_before_training, flow)
             else:
-                frames = self._resize_frames(frames, self.downsample_size_before_training)
+                frames, _ = self._resize_frames(frames, self.downsample_size_before_training)
 
         # 8. Pack frames and flow together (6-channel, flow||frames, or diff||frames)
 
@@ -234,7 +250,8 @@ class PreProcessor:
 
         return frames_clips, labels_clips
 
-    def hash_param_dict(self):
+    def hash_param_dict(self) -> Tuple[Dict[str, Any], str]:
+        """Return a stable dict of preprocessing parameters and a hash."""
         # Generate a param dict with stable key order
         preprocess_param_dict = {
             'DO_DOWNSAMPLE_BEFORE_PREPROCESS': self.do_downsample_before_preprocess,
@@ -283,9 +300,8 @@ class PreProcessor:
         preprocess_hash = hashlib.sha256(preprocess_str.encode()).hexdigest()
         return preprocess_param_dict, preprocess_hash
 
-    def get_roi_box(self, frames):
-        """Return one fixed square ROI box [x, y, side, side] for the whole clip."""
-
+    def get_roi_box(self, frames: np.ndarray) -> Tuple[List[float], List[List[float]]]:
+        """Return a fixed ROI bounding box and supporting boxes for the clip."""
         H, W = frames.shape[1], frames.shape[2]
 
         # Pick detection frames by frequency
@@ -369,9 +385,8 @@ class PreProcessor:
 
         return best_box, filled_boxes
 
-    def detect_body_box(self, frame):
-        """Apply YOLO detection on frames with a detection frequency."""
-
+    def detect_body_box(self, frame: np.ndarray) -> Optional[List[float]]:
+        """Apply YOLO detection on a single frame and return an [x, y, w, h] box."""
         if self.body_detector is None:
             self.logger.warning("Body detector is not initialized.")
             return None
@@ -428,12 +443,10 @@ class PreProcessor:
         self.logger.debug(f"Detected body box (YOLOv8): {body_box}, confidence: {best_conf:.2f}")
         return body_box
 
-    def detect_face_box(self, frame):
-        """
-        Detect face in a frame with improved error handling.
-        Falls back to using the full frame if face detection fails.
-        """
-        def _rot90(img, angle):
+    def detect_face_box(self, frame: np.ndarray) -> Optional[List[float]]:
+        """Detect faces (with rotation retries) and return an [x, y, w, h] box."""
+
+        def _rot90(img: np.ndarray, angle: int) -> np.ndarray:
             if angle == 0:
                 return img
             if angle == 90:
@@ -445,7 +458,7 @@ class PreProcessor:
             self.logger.exception("Angle must be one of {0,90,180,270}")
             raise ValueError("Angle must be one of {0,90,180,270}")
 
-        def _rot_to_orig(xyxy_r, angle, W, H):
+        def _rot_to_orig(xyxy_r: Sequence[float], angle: int, W: int, H: int) -> List[float]:
             # map rotated xyxy back to original coords by transforming all 4 corners
             x1r, y1r, x2r, y2r = xyxy_r
             pts_r = [(x1r, y1r), (x1r, y2r), (x2r, y1r), (x2r, y2r)]
@@ -537,18 +550,29 @@ class PreProcessor:
         self.logger.debug(f"Detected face box (YOLOv8n-Face): {face_box}, confidence: {best_conf:.2f}")
         return face_box
 
-    def _derive_chest_box(self, body_box, face_box, W, H, alpha=0.2):
+    def _derive_chest_box(
+        self,
+        body_box: Sequence[float],
+        face_box: Sequence[float],
+        W: int,
+        H: int,
+        alpha: float = 0.2,
+    ) -> List[float]:
         """
-        Chest ROI square below face, constrained inside body box.
+        Derive a square chest ROI constrained to the torso.
         Side: short side of body box.
         Center: if w >= h (landscape): cy = infant_cy; cx = infant_cx shifts towards face_cx;
         if h >  w (portrait):  cx = infant_cx; cy = infant_cy shifts towards face_cy.
-        :param body_box: [x,y,w,h]
-        :param face_box: [x,y,w,h]
-        :param W: raw frame size
-        :param H: raw frame size
-        :param alpha: nudge amount of shifts towards face center (0, 1)
-        :return [x, y, side, side]
+
+        Args:
+            body_box: [x,y,w,h]
+            face_box: [x,y,w,h]
+            raw frame size
+            raw frame size
+            alpha: nudge amount of shifts towards face center (0, 1)
+
+        Returns:
+         [x, y, side, side]
         """
         bx, by, bw, bh = body_box
         bcx, bcy = bx + bw / 2.0, by + bh / 2.0
@@ -581,7 +605,7 @@ class PreProcessor:
         self.logger.debug(f"Detected chest box: {chest_box}")
         return chest_box
 
-    def _enlarge_box(self, box, W, H):
+    def _enlarge_box(self, box: Sequence[float], W: int, H: int) -> List[int]:
         x, y, w, h = map(float, box)
         k = float(self.larger_box_coef)
         nx = x - (k - 1.0) / 2 * w
@@ -594,12 +618,14 @@ class PreProcessor:
         self.logger.debug(f"Original box: {box}, Enlarged box: {enlarged_box}")
         return enlarged_box
 
-    def _get_best_box(self, all_boxes, W, H, square=False):
-        """
-        Aggregate detected boxes to get one fixed ROI box.
-        If square=True, return [x, y, side, side], else [x, y, w, h].
-        W, H: raw frame size
-        """
+    def _get_best_box(
+        self,
+        all_boxes: Sequence[Sequence[float]],
+        W: int,
+        H: int,
+        square: bool = False,
+    ) -> List[int]:
+        """Aggregate detections into a single robust bounding box."""
         if not all_boxes:
             # fall back to whole frame (square for chest)
             if square:
@@ -657,8 +683,8 @@ class PreProcessor:
         return best_box
 
     @staticmethod
-    def crop_infant_boxes(frames, roi_box):
-        """Crop frames using detected bounding boxes."""
+    def crop_infant_boxes(frames: np.ndarray, roi_box: Sequence[float]) -> np.ndarray:
+        """Crop frames using a fixed bounding box, padding if necessary."""
         x, y, w, h = roi_box
         cropped_frames = []
         for frame in frames:
@@ -686,12 +712,13 @@ class PreProcessor:
 
         return np.stack(cropped_frames, axis=0)
 
-    def _resize_frames(self, frames, target_size, flow=None):
-        """
-        Resize frames to a target size.
-        If flow is provided, resize it too and scale vectors accordingly.
-        """
-
+    def _resize_frames(
+        self,
+        frames: np.ndarray,
+        target_size: Sequence[int],
+        flow: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """Resize frames (and optionally flow) to the requested target size."""
         self.logger.debug(f"Resizing frames to {target_size}")
         target_w, target_h = target_size
         T, H, W, C = frames.shape
@@ -703,7 +730,7 @@ class PreProcessor:
             resized_frames[i] = cv2.resize(frames[i], (target_w, target_h), interpolation=cv2.INTER_AREA)
 
         if flow is None:
-            return resized_frames
+            return resized_frames, None
 
         # Resize flow
         Cflow = flow.shape[-1]
@@ -729,9 +756,8 @@ class PreProcessor:
         return resized_frames, resized_flow
 
     @staticmethod
-    def convert_to_grayscale(frames):
+    def convert_to_grayscale(frames: np.ndarray) -> np.ndarray:
         """Convert frames to grayscale."""
-
         # Check if frames already have one channel
         if frames.shape[-1] == 1:
             return frames
@@ -749,8 +775,13 @@ class PreProcessor:
         # Convert PyTorch tensors back to numpy frames
         return frame_tensors.permute(0, 2, 3, 1).numpy()
 
-    def _resample_frames_labels(self, frames, labels, raw_fs):
-        """Resample frames and labels to a target FS."""
+    def _resample_frames_labels(
+        self,
+        frames: np.ndarray,
+        labels: np.ndarray,
+        raw_fs: int,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Resample frames/labels to `self.of_resample_fs` when needed."""
         if raw_fs % self.of_resample_fs == 0:
             resample_step = raw_fs // self.of_resample_fs
             new_frames = frames[::resample_step]
@@ -770,13 +801,19 @@ class PreProcessor:
             new_labels = labels[new_indices]
         return new_frames, new_labels
 
-    def _augment(self, frames, flow=None):
+    def _augment(
+        self,
+        frames: np.ndarray,
+        flow: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
-        Apply augmentations to frames (and flow if provided).
+        Apply geometric and photometric augmentations to frames (and flow if provided).
         Geometric transforms are applied to both, flow vectors are updated correspondingly.
         Photometric transforms are applied to frames only.
-        :param frames: (T, H, W, 3) float32
-        :param flow: (T, H, W, 3) or None
+
+        Args:
+            frames: (T, H, W, 3) float32
+            flow: (T, H, W, 3) or None
         """
         self.logger.debug("Applying augmentation pipeline:")
 
@@ -852,7 +889,7 @@ class PreProcessor:
 
         return frames_aug, flow_aug
 
-    def _chunk(self, frames, labels):
+    def _chunk(self, frames: np.ndarray, labels: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Chunk the data into smaller chunks."""
         if frames.shape[0] % self.chunk_length != 0:
             self.logger.debug(f"Some frames are dropped to make chunking work. Total frames: {frames.shape[0]}, Chunk length: {self.chunk_length}")
@@ -861,8 +898,8 @@ class PreProcessor:
         labels_clips = [labels[i * self.chunk_length:(i + 1) * self.chunk_length] for i in range(clip_num)]
         return np.array(frames_clips), np.array(labels_clips)
 
-    def _normalize_frames(self, frames):
-        # Apply frame normalizations
+    def _normalize_frames(self, frames: np.ndarray) -> np.ndarray:
+        """Apply frame normalizations."""
         if self.data_normalize_type == "Raw":
             transformed_frames = frames.copy()
         elif self.data_normalize_type == "DiffNormalized":
@@ -875,8 +912,8 @@ class PreProcessor:
 
         return transformed_frames
 
-    def _normalize_labels(self, labels):
-        # Apply label normalizations
+    def _normalize_labels(self, labels: np.ndarray) -> np.ndarray:
+        """Apply label normalizations."""
         if self.label_normalize_type == "Raw":
             transformed_labels = labels
         elif self.label_normalize_type == "DiffNormalized":
@@ -888,8 +925,10 @@ class PreProcessor:
             raise ValueError(f"Unsupported label transform type: {self.label_normalize_type}")
         return transformed_labels
 
-    def _normalize_flow(self, flow):
-        # Apply flow normalizations (only support Z-score Standardization)
+    def _normalize_flow(self, flow: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        """Apply flow normalizations (only supports raw or Z-score standardized)."""
+        if flow is None:
+            return None
         if self.flow_normalize_type == "Raw":
             transformed_flow = flow.copy()
         elif self.flow_normalize_type == "Standardized":
@@ -900,9 +939,8 @@ class PreProcessor:
 
         return transformed_flow
 
-    def _diff_normalize(self, data):
+    def _diff_normalize(self, data: np.ndarray) -> np.ndarray:
         """Calculate discrete difference and normalize, with NaN prevention."""
-
         # Check for NaN in input
         if np.isnan(data).any():
             self.logger.debug("NaN values in input data, replacing with zeros")
@@ -938,7 +976,7 @@ class PreProcessor:
         # Replace any remaining NaN or inf values
         return np.nan_to_num(diff_data, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def _standardize(self, data):
+    def _standardize(self, data: np.ndarray) -> np.ndarray:
         """Z-score standardization with NaN prevention."""
         # Check for NaN in input
         if np.isnan(data).any():
@@ -958,7 +996,8 @@ class PreProcessor:
         std = np.where(std < 1e-7, 1.0, std)
         return np.nan_to_num((data - mean) / std, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def run_optical_flow(self, frames):
+    def run_optical_flow(self, frames: np.ndarray) -> np.ndarray:
+        """Dispatch to the configured optical flow backend."""
         self.logger.info(f"Computing optical flow using method: {self.of_method.upper()}")
 
         if self.of_method == "raft":
@@ -972,7 +1011,7 @@ class PreProcessor:
             return self.compute_pyflow(frames)
 
     @staticmethod
-    def _init_raft_model(device):
+    def _init_raft_model(device: str) -> torch.nn.Module:
         try:
             weights = Raft_Large_Weights.DEFAULT
             model = raft_large(weights=weights, progress=False)
@@ -980,9 +1019,8 @@ class PreProcessor:
             model = raft_large(pretrained=True, progress=False)
         return model.to(device).eval()
 
-    def compute_raft_flow(self, frames):
+    def compute_raft_flow(self, frames: np.ndarray) -> np.ndarray:
         """Compute optical flow using pretrained RAFT model from torchvision."""
-
         # Init model on cache to avoid reloading
         device = "cuda" if torch.cuda.is_available() else "cpu"
         if not hasattr(self, "_raft_model") or self._raft_model is None:
@@ -1018,13 +1056,8 @@ class PreProcessor:
         flow_padding = np.zeros((1, H, W, 3), dtype=float)  # Add one more frame
         return np.concatenate((flow, flow_padding), axis=0, dtype=np.float32)  # Shape: (T, H, W, 3)
 
-    def compute_dense_flow(self, frames):
-        """
-        Compute dense optical flow using given method in cv2.
-        Methods may include:
-        "farneback", "tvl1", "pca", "deep".
-        """
-
+    def compute_dense_flow(self, frames: np.ndarray) -> np.ndarray:
+        """Compute dense optical flow using OpenCV methods (Farneback/TVL1/PCA/Deep)."""
         # Squeeze channel if present
         if frames.ndim == 4 and frames.shape[-1] == 1:
             frames = frames[..., 0]  # (T,H,W,1) -> (T,H,W)
@@ -1055,7 +1088,7 @@ class PreProcessor:
         flow_padding = np.zeros((1, H, W, 3), dtype=float)  # Add one more frame
         return np.concatenate((flow, flow_padding), axis=0, dtype=np.float32)  # Shape: (T, H, W, 3)
 
-    def _init_dense_flow_methods(self):
+    def _init_dense_flow_methods(self) -> Tuple[Any, List[Any]]:
         params = []
 
         if self.of_method == "farneback":
@@ -1076,15 +1109,12 @@ class PreProcessor:
             raise NotImplementedError(f"Unsupported Optical Flow algorithm: {self.of_method}")
         return method, params
 
-    def compute_pyflow(self, frames):
-        """
-        Compute optical flow using coarse2fine method in pyflow library.
-        Frame values must be resized to 0.0 - 1.0.
-        """
-
+    def compute_pyflow(self, frames: np.ndarray) -> np.ndarray:
+        """Compute optical flow using coarse2fine method in pyflow library."""
         T, H, W, C = frames.shape
         flow_stack = []
 
+        # Frame values must be resized to 0.0 - 1.0
         frames = [
             np.clip(f / 255.0, 0.0, 1.0).astype(float)
             for f in frames
@@ -1133,7 +1163,7 @@ class PreProcessor:
         flow_padding = np.zeros((1, H, W, 3), dtype=float)  # Add one more frame
         return np.concatenate((flow, flow_padding), axis=0, dtype=np.float32)  # (T, H, W, 3)
 
-    def _ensure_three_channels(self, data):
+    def _ensure_three_channels(self, data: Optional[np.ndarray]) -> Optional[np.ndarray]:
         if data is None:
             return None
         c = data.shape[-1]
@@ -1145,7 +1175,7 @@ class PreProcessor:
         raise ValueError(f"Unexpected channel count: {c}")
 
     @staticmethod
-    def flow_to_bgr(flow):
+    def flow_to_bgr(flow: np.ndarray) -> np.ndarray:
         """Convert optical flow (dx, dy) to BGR format (H, W, 3)."""
         dx = flow[..., 0].astype(np.float32)
         dy = flow[..., 1].astype(np.float32)
@@ -1169,11 +1199,8 @@ class PreProcessor:
         return bgr_out.astype(np.float32)  # [0,255] float32
 
 
-def compute_pyflow_single_pair(args):
-    """
-    Compute flow for a pair of frames using PyFlow.
-    For multiprocessing safety put this function outside the class.
-    """
+def compute_pyflow_single_pair(args: Tuple[np.ndarray, np.ndarray, Tuple[Any, ...]]) -> np.ndarray:
+    """Compute flow for a pair of frames using PyFlow (multiprocessing safe)."""
     prev, curr, pyflow_args = args
     with _suppress_pyflow_output():
         u, v, _ = pyflow.coarse2fine_flow(prev, curr, *pyflow_args)

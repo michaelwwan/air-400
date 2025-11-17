@@ -1,19 +1,22 @@
+"""Training entry point for the respiration models."""
+
+from __future__ import annotations
+
 import argparse
 import copy
 import logging
-
 import os
-
-
 import random
 from collections import defaultdict
 from datetime import datetime
+from typing import Any, Dict, List, Sequence, Tuple, Optional
 
 import numpy as np
 import torch
 import yaml
-from torch.utils.data import DataLoader, ConcatDataset
-import os
+from torch.utils.data import ConcatDataset, DataLoader
+from dataloaders.base_dataset import BaseDataset
+
 try:
     import wandb
 except Exception:
@@ -22,14 +25,15 @@ except Exception:
 from dataloaders.air125_dataset import AIR125Dataset
 from dataloaders.air400_dataset import AIR400Dataset
 from dataloaders.cohface_dataset import COHFACEDataset
-from models.DeepPhys import DeepPhys
-from models.TS_CAN import TSCAN
-from models.efficientphys import EfficientPhys
-from models.virenetRGB import VIRENet
+from models.deep_phys import DeepPhys
+from models.ts_can import TSCAN
+from models.efficient_phys import EfficientPhys
+from models.vire_net import VIRENet
 from trainers.base_trainer import BaseTrainer
 
 
-def set_random_seeds(seed=42):
+def set_random_seeds(seed: int = 42) -> None:
+    """Seed numpy/torch/random for reproducibility."""
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
@@ -40,13 +44,15 @@ def set_random_seeds(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-def seed_worker(worker_id):
+def seed_worker(worker_id: int) -> None:
+    """Seed dataloader workers independently."""
     worker_seed = torch.initial_seed() % 2 ** 32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
 
-def setup_logger(log_file_name, logs_dir):
+def setup_logger(log_file_name: str, logs_dir: str) -> logging.Logger:
+    """Configure console/file logging."""
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
@@ -69,14 +75,18 @@ def setup_logger(log_file_name, logs_dir):
     return logger
 
 
-def listify_datasets(config):
-    """Make sure DATA field contains a list."""
+def listify_datasets(config: Dict[str, Any]) -> None:
+    """Ensure each split DATA entry is a list for easier iteration."""
     for split in ['TRAIN', 'VALID', 'TEST']:
         if not isinstance(config[split]['DATA'], list):
             config[split]['DATA'] = [config[split]['DATA']]
 
 
-def handle_cross_validation(config, logger, train_size_pct=None):
+def handle_cross_validation(
+    config: Dict[str, Any],
+    logger: logging.Logger,
+    train_size_pct: Optional[int] = None,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Dict[str, Sequence[str]]]]]:
     """Handle cross validation for AIR125 or AIR400 dataset."""
     enable_cv = config.get('CV', {}).get('ENABLE_CV', False)
     if not enable_cv:
@@ -194,8 +204,8 @@ def handle_cross_validation(config, logger, train_size_pct=None):
     return cv_configs, cv_split_dataset_dicts
 
 
-def get_all_air_subjects(config, cv_datasets, logger):
-    """Get all unique subjects IDs in all listed datasets."""
+def get_all_air_subjects(config: Dict[str, Any], cv_datasets: Sequence[str], logger: logging.Logger) -> List[str]:
+    """Get all unique subject IDs in all listed datasets."""
     air125_path = config['DATA_PATH']['AIR_125']
     air400_path = config['DATA_PATH']['AIR_400']
     air125_subjects = AIR125Dataset.get_unique_subjects(AIR125Dataset.get_raw_data(air125_path))
@@ -211,7 +221,7 @@ def get_all_air_subjects(config, cv_datasets, logger):
         raise ValueError(f"Unsupported CV datasets: {cv_datasets}")
 
 
-def get_cv_split_subjects(subjects):
+def get_cv_split_subjects(subjects: Sequence[str]) -> Dict[str, List[str]]:
     """Convert [Dataset_name]_[Subject ID] subjects to a map."""
     cv_split_subjects = defaultdict(list)
     for s in subjects:
@@ -221,8 +231,8 @@ def get_cv_split_subjects(subjects):
     return cv_split_subjects
 
 
-def isolate_config_for_dataset(config, curr_dataset):
-    """For a given dataset and split, create a config that includes only the dataset in each phase (if available)."""
+def isolate_config_for_dataset(config: Dict[str, Any], curr_dataset: str) -> Dict[str, Any]:
+    """Extract config containing only the specified dataset per split."""
     config = copy.deepcopy(config)
     for split in ['TRAIN', 'VALID', 'TEST']:
         data_config = config[split]['DATA']
@@ -235,7 +245,10 @@ def isolate_config_for_dataset(config, curr_dataset):
     return config
 
 
-def get_split_datasets(config, dataset_map):
+def get_split_datasets(
+    config: Dict[str, Any],
+    dataset_map: Dict[str, type[BaseDataset]],
+) -> Dict[str, Optional[ConcatDataset]]:
     """Create datasets for train, validation, and test splits."""
     datasets = {}
     for split in ['TRAIN', 'VALID', 'TEST']:
@@ -260,7 +273,8 @@ def get_split_datasets(config, dataset_map):
     return datasets
 
 
-def main():
+def main() -> None:
+    """CLI entry point for training/evaluating models."""
     SEED = 100
     set_random_seeds(SEED)
 

@@ -1,37 +1,50 @@
+"""Core training loop and evaluation helpers used across models."""
+
+from __future__ import annotations
+
 import logging
 import os
 from collections import defaultdict
+from typing import Any, DefaultDict, Dict, List, MutableMapping, Optional, Sequence, Tuple
 
+import numpy as np
 import torch
 import torch.optim as optim
-import numpy as np
 from scipy.stats import pearsonr
+from torch import Tensor
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 try:
     import wandb
 except Exception:
     wandb = None
 
-from loss.negpearsonloss import Neg_Pearson
-from loss.psdmse import PSD_MSE
+from loss.neg_pearson import Neg_Pearson
+from loss.psdmse import PSDMSE
 from processors.post_processor import PostProcessor
 
 
 class BaseTrainer:
     """Base trainer subclass for all models with wandb support."""
 
-    def __init__(self, model, config, train_loader=None, val_loader=None, test_loader=None):
-        """
-        Initialize the trainer with model, config, and data loaders.
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        config: Dict[str, Any],
+        train_loader: Optional[DataLoader] = None,
+        val_loader: Optional[DataLoader] = None,
+        test_loader: Optional[DataLoader] = None,
+    ) -> None:
+        """Initialize the trainer with model, config, and data loaders.
 
         Args:
-            model: Models can be EfficientPhys, DeepPhys, TS-CAN, or VIRENet
-            config: Configuration dictionary
-            train_loader: DataLoader for training data
-            val_loader: DataLoader for validation data
-            test_loader: DataLoader for test data
-        """
+            model: One of EfficientPhys, DeepPhys, TS-CAN, or VIRENet.
+            config: Parsed training/inference configuration dictionary.
+            train_loader: DataLoader that yields training batches.
+            val_loader: DataLoader for validation batches.
+            test_loader: DataLoader for held-out test batches.
 
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
 
@@ -51,7 +64,7 @@ class BaseTrainer:
             self.model = torch.nn.DataParallel(self.model, device_ids=list(range(self.num_of_gpu)))
 
         # Configure loss function
-        self.criterion = defaultdict()
+        self.criterion: Dict[str, Any] = defaultdict()
         self._setup_loss()
 
         # Setup optimizer and scheduler
@@ -77,7 +90,8 @@ class BaseTrainer:
         if self.use_wandb:
             wandb.watch(self.model)
 
-    def _load_params(self):
+    def _load_params(self) -> None:
+        """Populate frequently used hyper-parameters from the config."""
         # Model related parameters
         self.frame_depth = self.config['MODEL']['FRAME_DEPTH']
         self.model_name = self.config['MODEL']['NAME']
@@ -115,7 +129,7 @@ class BaseTrainer:
         self.use_post_process = self.config['INFERENCE'].get('USE_POST_PROCESS', False)
         self.eval_method = self.config['INFERENCE']['EVALUATION_METHOD']
 
-    def _setup_loss(self):
+    def _setup_loss(self) -> None:
         """Configure the loss function based on config."""
         loss_type = self.config.get('MODEL', {}).get('LOSS', 'psd_mse')
         for split in ['TRAIN', 'VALID', 'TEST']:
@@ -126,13 +140,13 @@ class BaseTrainer:
                         low, high = 0.3, 0.8
                     else:
                         low, high = 0.08, 0.5
-                    self.criterion[d['DATASET']] = PSD_MSE(high_pass=high, low_pass=low)
+                    self.criterion[d['DATASET']] = PSDMSE(high_pass=high, low_pass=low)
                 elif loss_type == 'neg_pearson':
                     self.criterion[d['DATASET']] = Neg_Pearson()
                 else:
                     self.criterion[d['DATASET']] = torch.nn.MSELoss()
 
-    def train(self):
+    def train(self) -> None:
         """Training routine for the model with NaN handling and gradient clipping."""
         if self.train_loader is None:
             self.logger.error("No data for training")
@@ -304,8 +318,8 @@ class BaseTrainer:
 
         self.logger.info(f"Best trained epoch: {self.best_epoch}, min_val_loss: {self.min_valid_loss}")
 
-    def validate(self):
-        """Validation routine for the model."""
+    def validate(self) -> float:
+        """Validate the model on the held-out validation loader."""
         if self.val_loader is None:
             self.logger.error("No data for validation")
             raise ValueError("No data for validation")
@@ -381,9 +395,9 @@ class BaseTrainer:
             all_losses.append(loss_subj.item())
 
         # Calculate average validation loss
-        return np.mean(all_losses)
+        return float(np.mean(all_losses))
 
-    def test(self):
+    def test(self) -> Dict[str, float]:
         """Testing routine for the model."""
         if self.test_loader is None:
             self.logger.error("No data for testing")
@@ -496,19 +510,38 @@ class BaseTrainer:
 
         return test_metrics
 
-    def _calculate_subject_loss(self, pred_subj, labels_subj, ds_name, fs):
+    def _calculate_subject_loss(
+        self,
+        pred_subj: Tensor,
+        labels_subj: Tensor,
+        ds_name: str,
+        fs: int,
+    ) -> Tensor:
         """Handle different loss function requirements and calculate subject level loss."""
         criterion = self.criterion[ds_name]
-        if isinstance(criterion, PSD_MSE):
+        if isinstance(criterion, PSDMSE):
             pred_subj = pred_subj.view(1, -1)  # N=1 for each subject
             labels_subj = labels_subj.view(1, -1)
         return criterion(pred_subj, labels_subj, fs)
 
-    def _aggregate_batch_by_subject(self, pred, labels, subj_indices, dataset_names, fs_list):
-        subj_predictions = defaultdict(list)
-        subj_labels = defaultdict(list)
-        dataset_subject_map = defaultdict(str)
-        fs_subject_map = defaultdict(int)
+    def _aggregate_batch_by_subject(
+        self,
+        pred: Tensor,
+        labels: Tensor,
+        subj_indices: Sequence[Any],
+        dataset_names: Sequence[str],
+        fs_list: Sequence[Any],
+    ) -> Tuple[
+        DefaultDict[str, List[Tensor]],
+        DefaultDict[str, List[Tensor]],
+        DefaultDict[str, str],
+        DefaultDict[str, int],
+    ]:
+        """Group a batch of chunks back into per-subject tensors."""
+        subj_predictions: DefaultDict[str, List[Tensor]] = defaultdict(list)
+        subj_labels: DefaultDict[str, List[Tensor]] = defaultdict(list)
+        dataset_subject_map: DefaultDict[str, str] = defaultdict(str)
+        fs_subject_map: DefaultDict[str, int] = defaultdict(int)
 
         for i in range(len(subj_indices)):
             subj_index = subj_indices[i]  # filename
@@ -524,17 +557,12 @@ class BaseTrainer:
 
         return subj_predictions, subj_labels, dataset_subject_map, fs_subject_map
 
-    def _calculate_metrics(self, predictions, labels):
-        """
-        Calculate evaluation metrics for rPPG predictions, including RMSE.
-
-        Args:
-            predictions: Dictionary of predictions by subject and chunk
-            labels: Dictionary of ground truth labels by subject and chunk
-
-        Returns:
-            Dictionary of metrics including MSE, RMSE, and MAE
-        """
+    @staticmethod
+    def _calculate_metrics(
+        predictions: MutableMapping[str, MutableMapping[int, Tensor]],
+        labels: MutableMapping[str, MutableMapping[int, Tensor]],
+    ) -> Dict[str, float]:
+        """Calculate evaluation metrics for rPPG predictions."""
         # Collect all predictions and labels
         all_preds = []
         all_labels = []
@@ -564,7 +592,7 @@ class BaseTrainer:
             "test_pearson_r": pearson_r
         }
 
-    def _save_model(self, epoch):
+    def _save_model(self, epoch: int) -> None:
         """Save model checkpoint."""
         os.makedirs(self.model_dir, exist_ok=True)
 

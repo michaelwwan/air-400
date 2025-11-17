@@ -1,40 +1,54 @@
+"""Inference entry point for running pretrained respiration models."""
+
+from __future__ import annotations
+
 import argparse
 import json
+import logging
 import os
 from datetime import datetime
+from typing import Any, Dict, List, Sequence, Tuple, Optional
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
-import h5py
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from models.DeepPhys import DeepPhys
-from models.TS_CAN import TSCAN
-from models.efficientphys import EfficientPhys
-from models.virenetRGB import VIRENet
 from dataloaders.inference_dataset import InferenceDataset
+from main import seed_worker, set_random_seeds, setup_logger
+from models.deep_phys import DeepPhys
+from models.ts_can import TSCAN
+from models.efficient_phys import EfficientPhys
+from models.vire_net import VIRENet
 from processors.post_processor import PostProcessor
-from main import set_random_seeds, setup_logger, seed_worker
 
 
-def _get_test_split_cfg(config):
+def _get_test_split_cfg(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the TEST.DATA config (handles list/dict conveniences)."""
     split_cfg = config.get('TEST', {})
     data = split_cfg.get('DATA') if isinstance(split_cfg, dict) else None
     if data is None:
-        raise KeyError(f"Config missing TEST.DATA")
+        raise KeyError("Config missing TEST.DATA")
     if isinstance(data, list):
         if not data:
-            raise ValueError(f"Config TEST.DATA list is empty")
+            raise ValueError("Config TEST.DATA list is empty")
         return data[0]
     if isinstance(data, dict):
         return data
     raise TypeError(f"Unexpected type for TEST.DATA: {type(data)}")
 
 
-def _save_pred(out_dir, base, fs, pred_seq, logger):
+def _save_pred(
+    out_dir: str,
+    base: str,
+    fs: int,
+    pred_seq: np.ndarray,
+    logger: logging.Logger,
+) -> Tuple[str, str]:
+    """Save prediction sequence as HDF5 + waveform PNG."""
     pred_seq = np.asarray(pred_seq).reshape(-1)
     t = np.arange(len(pred_seq), dtype=np.float32)
     if fs > 0:
@@ -59,7 +73,8 @@ def _save_pred(out_dir, base, fs, pred_seq, logger):
     return hdf5_path, png_path
 
 
-def build_model(config, logger):
+def build_model(config: Dict[str, Any], logger: logging.Logger) -> torch.nn.Module:
+    """Instantiate the requested model class."""
     model_name = config['MODEL']['NAME']
     split_cfg = _get_test_split_cfg(config)
     frame_h = split_cfg['PREPROCESS']['DOWNSAMPLE_SIZE_BEFORE_TRAINING'][1]
@@ -78,7 +93,13 @@ def build_model(config, logger):
     raise ValueError(f"Unsupported model: {model_name}")
 
 
-def run_inference(config, model, data_loader, logger):
+def run_inference(
+    config: Dict[str, Any],
+    model: torch.nn.Module,
+    data_loader: DataLoader,
+    logger: logging.Logger,
+) -> Dict[str, Any]:
+    """Run the model over the provided loader and return per-video stats."""
     if data_loader is None:
         logger.error("No data for inference")
         raise ValueError("No data for inference")
@@ -103,13 +124,6 @@ def run_inference(config, model, data_loader, logger):
 
     post_processor = PostProcessor()
     model.eval()
-
-    def _to_float(val):
-        if isinstance(val, (list, tuple)) and val:
-            val = val[0]
-        if hasattr(val, 'item'):
-            return float(val.item())
-        return float(val)
 
     all_preds = []
     fs = None
@@ -170,7 +184,8 @@ def run_inference(config, model, data_loader, logger):
     }
 
 
-def find_checkpoint(config, logger, explicit_path=None):
+def find_checkpoint(config: Dict[str, Any], logger: logging.Logger, explicit_path: Optional[str] = None) -> str:
+    """Resolve which checkpoint to load."""
     if explicit_path:
         if not os.path.isfile(explicit_path):
             logger.error(f"Checkpoint not found: {explicit_path}")
@@ -193,7 +208,8 @@ def find_checkpoint(config, logger, explicit_path=None):
     return os.path.join(model_dir, candidates[-1])
 
 
-def main():
+def main() -> None:
+    """Entry point for running inference on videos listed in config."""
     SEED = 100
     set_random_seeds(SEED)
 

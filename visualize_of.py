@@ -1,28 +1,32 @@
+"""Optical flow visualization utilities for demo GIFs."""
+
+from __future__ import annotations
+
+import argparse
 import os
 from collections import defaultdict
+from typing import Dict, List, Sequence, Tuple
 
 import cv2
-
 import imageio.v3 as iio
-import yaml
-from pygifsicle import optimize
 import numpy as np
+import yaml
 from PIL import Image, ImageDraw, ImageFont
+from pygifsicle import optimize
 from torchvision.io import read_video
-from tqdm import tqdm
-import argparse
 
 from processors.pre_processor import PreProcessor
 
 
-def get_fs(video_path):
+def get_fs(video_path: str) -> int:
+    """Return FPS for the provided video."""
     cap = cv2.VideoCapture(video_path)
     fs = int(round(cap.get(cv2.CAP_PROP_FPS)))
     cap.release()
     return fs
 
 
-def flow_to_bgr(flow):
+def flow_to_bgr(flow: np.ndarray) -> np.ndarray:
     """Convert calculated optical flow (H, W, 2) to BGR-format image (H, W, 3)."""
     mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
     hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
@@ -32,7 +36,7 @@ def flow_to_bgr(flow):
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 
-def overlay_flow_on_frame(frame, flow, alpha=0.7):
+def overlay_flow_on_frame(frame: np.ndarray, flow: np.ndarray, alpha: float = 0.7) -> np.ndarray:
     """Blend flow (BGR) onto an ROI frame (BGR). Returns uint8."""
     fr = frame.astype(np.float32)
     fl = flow.astype(np.float32)
@@ -40,8 +44,14 @@ def overlay_flow_on_frame(frame, flow, alpha=0.7):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-def main(video_path, preprocessor, of_methods, output_path):
-    visual_frames_dict = defaultdict(list)
+def main(
+    video_path: str,
+    preprocessor: PreProcessor,
+    of_methods: Sequence[str],
+    output_path: str,
+) -> None:
+    """Generate a multi-panel GIF showing ROI and optical-flow overlays."""
+    visual_frames_dict: Dict[str, List[np.ndarray]] = defaultdict(list)
     max_length = 0
 
     frames, _, _ = read_video(video_path)
@@ -49,7 +59,7 @@ def main(video_path, preprocessor, of_methods, output_path):
     frames = frames[:150, :, :, :]  # Visualize 150 frames at most
 
     if preprocessor.do_downsample_before_preprocess:
-        frames = preprocessor._resize_frames(frames, [1280, 720])
+        frames, _ = preprocessor._resize_frames(frames, [1280, 720])
 
     # Raw frames
     visual_frames_dict["original"] = list(frames)
@@ -62,7 +72,7 @@ def main(video_path, preprocessor, of_methods, output_path):
     roi_bgr = np.array([cv2.cvtColor(cv2.resize(f, (512, 512), interpolation=cv2.INTER_AREA), 
                                      cv2.COLOR_RGB2BGR) for f in frames])
     visual_frames_dict["roi"] = list(roi_bgr)
-    visual_frames_dict["roi_box"] =[cb for (_, _,cb, _, _, _) in all_boxes]  # chest box
+    visual_frames_dict["roi_box"] = [cb for (_, _, cb, _, _, _) in all_boxes]  # chest box
     visual_frames_dict["body_box"] = [bb for (bb, _, _, _, _, _) in all_boxes]
     visual_frames_dict["face_box"] = [fb for (_, fb, _, _, _, _) in all_boxes]
 

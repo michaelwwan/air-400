@@ -1,25 +1,28 @@
+"""Power Spectral Density MSE loss utilities."""
+
+from __future__ import annotations
+
 import torch
-from torch import nn
-import torch.nn.functional as F
 import torch.fft
-import math
+import torch.nn.functional as F
+from torch import Tensor, nn
 
-""" Power Spectral Density MSE loss.
-Calculates normalized PSD for output and target. MSE on normalized PSDs.
-"""
 
-"""NormPSD code gently borrowed from https://github.com/ToyotaResearchInstitute/RemotePPG 
-"""
 class NormPSD(nn.Module):
     """
-    Normalized Power Spectral Density calculation with NaN prevention.
+    Power Spectral Density MSE loss.
+    Calculates normalized PSD for output and target. MSE on normalized PSDs.
+    NormPSD code gently borrowed from https://github.com/ToyotaResearchInstitute/RemotePPG
     """
-    def __init__(self, high_pass, low_pass):
+
+    def __init__(self, high_pass: float, low_pass: float) -> None:
+        """Store passband boundaries."""
         super().__init__()
         self.high_pass = high_pass
         self.low_pass = low_pass
-    
-    def forward(self, x, fs, zero_pad=0):
+
+    def forward(self, x: Tensor, fs: int, zero_pad: float = 0) -> Tensor:
+        """Return normalized PSD of `x` within the configured band."""
         # Handle NaN input
         if torch.isnan(x).any():
             print("Warning: NaN input to NormPSD")
@@ -64,19 +67,21 @@ class NormPSD(nn.Module):
         
         return x
 
-class PSD_MSE(nn.Module):
-    """
-    Power Spectral Density MSE loss with NaN handling.
-    """
-    def __init__(self, high_pass, low_pass):
+
+class PSDMSE(nn.Module):
+    """Power Spectral Density MSE loss with NaN handling."""
+
+    def __init__(self, high_pass: float, low_pass: float) -> None:
+        """Create helpers for PSD computation and MSE measurement."""
         super().__init__()
         self.high_pass = high_pass
         self.low_pass = low_pass
         self.psd = NormPSD(self.high_pass, self.low_pass)
         self.mse = nn.MSELoss(reduction='mean')
         print("Using PSD MSE loss for training.")
-    
-    def forward(self, preds, labels, fs):
+
+    def forward(self, preds: Tensor, labels: Tensor, fs: int) -> Tensor:
+        """Compute MSE between normalized PSDs for predictions and labels."""
         # Handle NaN input
         if torch.isnan(preds).any() or torch.isnan(labels).any():
             print("Warning: NaN input to PSD_MSE loss")
