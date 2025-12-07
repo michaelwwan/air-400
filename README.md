@@ -82,7 +82,7 @@ git clone https://github.com/pathak22/pyflow.git
 
 
 #### 1. Preparation
-- Download a [trained model](https://drive.google.com/drive/folders/1ohYbeIJG85cpop3yhBtXaCfQ3ooWZMsk?usp=sharing) and [ROI detector](https://drive.google.com/drive/folders/1PQo7md-hW1x76l_GaBnWH8_H8U7rxpOt?usp=share_link) files.
+- Download a [trained model](https://drive.google.com/drive/folders/1ohYbeIJG85cpop3yhBtXaCfQ3ooWZMsk?usp=sharing) and [ROI detector](https://drive.google.com/drive/folders/1PQo7md-hW1x76l_GaBnWH8_H8U7rxpOt?usp=share_link) files. Download our [demo video](https://drive.google.com/file/d/1GLIE4sI8xc06mi0-9h6F6yGMxd39caOc/view?usp=share_link), or provide your own as input.
 - Fill the `DATA_PATH` fields of config YAML in `configs/inference` folder. 
   - Set path for **output** directory.
   - Set valid **detector** paths (YOLO weights) if ROI cropping is enabled. Otherwise, set `DO_CROP_INFANT_REGION: False`.
