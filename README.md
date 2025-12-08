@@ -11,10 +11,10 @@
   <a href="https://github.com/michaelwwan/air-400">
     <img src="https://img.shields.io/badge/Github-michaelwwan/air--400-black.svg?logo=github&style=flat-square">
   </a>
-  <a href="https://drive.google.com/drive/u/1/folders/12BCJ2TNjAquMHTr3A60p2sQJ9Gp7CRDt">
+  <a href="https://drive.google.com/drive/folders/1-bYcnAFy15y_sff9-izpPSGS-cinzEut?usp=share_link">
     <img src="https://img.shields.io/badge/Dataset-Google%20Drive-blue.svg?logo=google-drive&style=flat-square">
   </a>
-  <a href="https://drive.google.com/drive/u/1/folders/1kjSAF9Dt24D670cwBgc-uXCz8WYTaulq">
+  <a href="https://drive.google.com/drive/folders/1ohYbeIJG85cpop3yhBtXaCfQ3ooWZMsk?usp=sharing">
     <img src="https://img.shields.io/badge/Model-Checkpoint-orange.svg?logo=google-cloud&style=flat-square">
   </a>
   <a href="https://opensource.org/licenses/MIT">
