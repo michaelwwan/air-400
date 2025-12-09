@@ -24,7 +24,7 @@
 
 This is the official repository of our **WACV 2026** paper:
 
-> Song, L.\*, Bishnoi, H.\*, Manne, S.K.R., Ostadabbas, S., Taylor, B.J., Wan, M., "**Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation**" (*equal contribution). 2026 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV).
+> Song, L.\*, Bishnoi, H.\*, Manne, S.K.R., Ostadabbas, S., Taylor, B.J., Wan, M., "**Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation**" (*equal contribution). 2026 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV). [[arXiv link](https://arxiv.org/abs/2512.06888)]
 
 Here we provide our **model code**, **training checkpoints**, and **annotated dataset** to support automatic estimation of **infant respiration waveforms and respiration rate** from natural video footage, with the help of spatiotemporal computer vision models and infant-specific region-of-interest tracking. 
 
