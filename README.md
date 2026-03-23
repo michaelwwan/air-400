@@ -6,16 +6,27 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2512.06888">
-    <img src="https://img.shields.io/badge/arXiv-2512.06888-b31b1b.svg?style=flat-square">
+    <img src="https://img.shields.io/badge/arXiv-2512.06888-b31b1b.svg?logo=arXiv&logoColor=white&style=flat-square">
+  </a>
+  <a href="https://wacv.thecvf.com/virtual/2026/poster/508">
+	<img src="https://img.shields.io/badge/WACV-2026-e19c6a.svg?style=flat-square">
   </a>
   <a href="https://github.com/michaelwwan/air-400">
-    <img src="https://img.shields.io/badge/Github-michaelwwan/air--400-black.svg?logo=github&style=flat-square">
+    <img src="https://img.shields.io/badge/Github-michaelwwan/air--400-black.svg?logo=github&logoColor=white&style=flat-square">
   </a>
+</p>
+<p align="center">
   <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/">
-    <img src="https://img.shields.io/badge/Dataset-AClab%20Drive-blue.svg?logo=google-drive&style=flat-square">
+    <img src="https://img.shields.io/badge/Dataset-AClab%20Drive-1f6feb.svg?logo=google-drive&logoColor=white&style=flat-square">
   </a>
   <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/Model%20Checkpoints/">
-    <img src="https://img.shields.io/badge/Model-Checkpoint-orange.svg?logo=google-cloud&style=flat-square">
+    <img src="https://img.shields.io/badge/Model-Checkpoint-orange.svg?logo=google-cloud&logoColor=white&style=flat-square">
+  </a>
+  <a href="https://wacv.thecvf.com/media/PosterPDFs/WACV%202026/508.png?t=1771517236.1543777">
+	<img src="https://img.shields.io/badge/Poster-WACV%202026-145a6c.svg?style=flat-square">
+  </a>
+  <a href="https://youtu.be/qhQWZ8Oco80">
+	<img src="https://img.shields.io/badge/YouTube-Presentation-red.svg?logo=YouTube&logoColor=white&style=flat-square">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square">
@@ -24,9 +35,32 @@
 
 This is the official repository of our **WACV 2026** paper:
 
-> Song, L.\*, Bishnoi, H.\*, Manne, S.K.R., Ostadabbas, S., Taylor, B.J., Wan, M., "**Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation**" (*equal contribution). 2026 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV). [[arXiv link](https://arxiv.org/abs/2512.06888)]
+> Song, L.\*, Bishnoi, H.\*, Manne, S.K.R., Ostadabbas, S., Taylor, B.J., Wan, M., "**Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation**" (*equal contribution). 2026 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV). [[arXiv](https://arxiv.org/abs/2512.06888)]
 
-Here we provide our **model code**, **training checkpoints**, and **annotated dataset** to support automatic estimation of **infant respiration waveforms and respiration rate** from natural video footage, with the help of spatiotemporal computer vision models and infant-specific region-of-interest tracking. 
+Here we provide our **code**, **training checkpoints**, and the **AIR-400 annotated dataset** for estimating **infant respiration waveforms and respiration rate** from natural video footage, using spatiotemporal computer vision models and infant-specific region-of-interest tracking. 
+
+## ✨ Highlights
+
+- Introduces **AIR-400**, a large-scale annotated dataset for video-based infant respiration estimation.
+- Supports estimation of both **respiration waveform** and **respiration rate** from natural infant videos.
+- Includes **training / inference code**, **model checkpoints**, and **ROI detectors**.
+- Provides a **WACV 2026 poster** and **recorded presentation** for quick overview.
+
+<p align="center">
+<img src="https://github.com/user-attachments/assets/ab3b7890-e5b8-4fa4-8e27-090a6a7e7062" width="80%"/>
+</p>
+<p align="center">
+<i>WACV Poster</i>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/qhQWZ8Oco80" title="[WACV 2026] Overcoming Small Data Limitations in Video-Based Infant Respiration Estimation">
+    <img src="https://img.youtube.com/vi/qhQWZ8Oco80/maxresdefault.jpg" alt="Recorded Presentation on YouTube" width="60%">
+  </a>
+</p>
+<p align="center">
+<i>Recorded Presentation on YouTube</i>
+</p>
 
 <p align="center">
 <img src="https://github.com/user-attachments/assets/e2aacfc2-fa0d-4e4d-b03f-65e555bd81a2" alt="Sample Dataset Preprocessing" width="60%"></img>
@@ -44,7 +78,6 @@ Here we provide our **model code**, **training checkpoints**, and **annotated da
 - [Reproducing Paper Results](#-reproducing-paper-results)
 - [Citation](#-citation)
 - [License](#-license)
-
 
 
 ## 📦 Requirements & Setup 
@@ -108,7 +141,7 @@ Example run:
 ./run_infer.sh
 ```
 
-#### 3. Outputs
+#### 3. Expected outputs
 - **Per-video JSON** under `OUTPUT_DIR/inference/{video}_{datetime}` with prediction result JSON file and generated artifacts (HDF5 format time series and PNG format waveform plots).
 - A **summary JSON** across all processed videos (`summary_{datetime}.json`).
 - Logs saved under `OUTPUT_DIR/logs/`.
@@ -118,9 +151,9 @@ Example run:
 
 The [**AIR-400** dataset](https://coe.northeastern.edu/Research/AClab/AIR-400/) consists of two parts:
 
-- **AIR-125** — original dataset (125 videos from 8 subjects, labeled S01 through S08, with S06, S07, and 08 provided as public web links)
+- **AIR-125** — original dataset (125 videos from 8 subjects, labeled S01 through S08, with S06, S07, and S08 provided as public web links)
 
-- **AIR-400** — expanded dataset (275 videos from 10 additional subjects from the same study, labeled S01 through S10, but not the same as the ones from AIR-125)
+- **AIR-400** — expanded dataset (275 videos from 10 additional subjects from the same study, labeled S01 through S10; these subject IDs are independent from those in AIR-125)
 
 Each subject directory contains synchronized **video files (.mp4)** and **breathing signal annotations (.hdf5)**. 
 
@@ -202,7 +235,7 @@ Specify required **config YAML** file path in `run.sh`. Then *uncomment* `--prep
 ```
 
 #### 5. Start training and testing process
-Comment out `--peprocess` after `python main.py --config "$CONFIG"` in `run.sh` to start training and testing process.
+Comment out `--preprocess` after `python main.py --config "$CONFIG"` in `run.sh` to start training and testing process.
 ```bash
 ./run.sh
 ```
