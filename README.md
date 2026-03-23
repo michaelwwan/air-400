@@ -31,7 +31,9 @@ Here we provide our **code**, **training checkpoints**, and the **AIR-400 annota
 - Provides a **WACV 2026 poster** and **recorded presentation** for quick overview.
 
 <p align="center">
-<img src="https://github.com/user-attachments/assets/ab3b7890-e5b8-4fa4-8e27-090a6a7e7062" width="80%"/>
+  <a href="https://wacv.thecvf.com/media/PosterPDFs/WACV%202026/508.png?t=1771517236.1543777" title="WACV Poster">
+    <img src="https://github.com/user-attachments/assets/ab3b7890-e5b8-4fa4-8e27-090a6a7e7062" alt="WACV Poster" width="80%"/>
+  </a>
 </p>
 <p align="center">
 <i>WACV Poster</i>
