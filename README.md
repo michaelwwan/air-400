@@ -5,32 +5,16 @@
 </p>
 
 <p align="center">
-  <a href="https://arxiv.org/abs/2512.06888">
-    <img src="https://img.shields.io/badge/arXiv-2512.06888-b31b1b.svg?logo=arXiv&logoColor=white&style=flat-square">
-  </a>
-  <a href="https://wacv.thecvf.com/virtual/2026/poster/508">
-	<img src="https://img.shields.io/badge/WACV-2026-e19c6a.svg?style=flat-square">
-  </a>
-  <a href="https://github.com/michaelwwan/air-400">
-    <img src="https://img.shields.io/badge/Github-michaelwwan/air--400-black.svg?logo=github&logoColor=white&style=flat-square">
-  </a>
+  <a href="https://arxiv.org/abs/2512.06888"><img src="https://img.shields.io/badge/arXiv-2512.06888-b31b1b.svg?logo=arXiv&logoColor=white&style=flat-square"></a>
+  <a href="https://wacv.thecvf.com/virtual/2026/poster/508"><img src="https://img.shields.io/badge/WACV-2026-e19c6a.svg?style=flat-square"></a>
+  <a href="https://github.com/michaelwwan/air-400"><img src="https://img.shields.io/badge/Github-michaelwwan/air--400-black.svg?logo=github&logoColor=white&style=flat-square"></a>
 </p>
 <p align="center">
-  <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/">
-    <img src="https://img.shields.io/badge/Dataset-AClab%20Drive-1f6feb.svg?logo=google-drive&logoColor=white&style=flat-square">
-  </a>
-  <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/Model%20Checkpoints/">
-    <img src="https://img.shields.io/badge/Model-Checkpoint-orange.svg?logo=google-cloud&logoColor=white&style=flat-square">
-  </a>
-  <a href="https://wacv.thecvf.com/media/PosterPDFs/WACV%202026/508.png?t=1771517236.1543777">
-	<img src="https://img.shields.io/badge/Poster-WACV%202026-145a6c.svg?style=flat-square">
-  </a>
-  <a href="https://youtu.be/qhQWZ8Oco80">
-	<img src="https://img.shields.io/badge/YouTube-Presentation-red.svg?logo=YouTube&logoColor=white&style=flat-square">
-  </a>
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square">
-  </a>
+  <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/"><img src="https://img.shields.io/badge/Dataset-AClab%20Drive-1f6feb.svg?logo=google-drive&logoColor=white&style=flat-square"></a>
+  <a href="https://coe.northeastern.edu/Research/AClab/AIR-400/Model%20Checkpoints/"><img src="https://img.shields.io/badge/Model-Checkpoint-orange.svg?logo=google-cloud&logoColor=white&style=flat-square"></a>
+  <a href="https://wacv.thecvf.com/media/PosterPDFs/WACV%202026/508.png?t=1771517236.1543777"><img src="https://img.shields.io/badge/Poster-WACV%202026-145a6c.svg?style=flat-square"></a>
+  <a href="https://youtu.be/qhQWZ8Oco80"><img src="https://img.shields.io/badge/YouTube-Presentation-red.svg?logo=YouTube&logoColor=white&style=flat-square"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square"></a>
 </p>
 
 This is the official repository of our **WACV 2026** paper:
