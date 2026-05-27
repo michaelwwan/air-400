@@ -135,7 +135,7 @@ Example run:
 
 ## 📚 Annotated Infant Respiration Dataset (AIR-400)
 
-The [**AIR-400** dataset](https://coe.northeastern.edu/Research/AClab/AIR-400/) consists of two parts:
+The [**AIR-400** dataset](https://coe.northeastern.edu/Research/AClab/AIR-400/) ([alternate link](https://drive.google.com/drive/folders/1-bYcnAFy15y_sff9-izpPSGS-cinzEut?usp=share_link)) consists of two parts:
 
 - **AIR-125** — original dataset (125 videos from 8 subjects, labeled S01 through S08, with S06, S07, and S08 provided as public web links)
 
